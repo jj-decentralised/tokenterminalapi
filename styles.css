@@ -309,7 +309,7 @@ main { padding: var(--spacing-lg) var(--spacing-xl); }
   cursor: pointer;
 }
 .data-table .protocol-name:hover { color: var(--accent-blue); text-decoration: underline; }
-.data-table .sector-dot {
+.sector-dot {
   display: inline-block;
   width: 8px;
   height: 8px;
