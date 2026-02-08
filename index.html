@@ -646,7 +646,165 @@ function mulberry32(a) {
 }
 
 // ===================================================================
-// DATA GENERATOR
+// TOKEN TERMINAL API LAYER
+// ===================================================================
+const API_BASE = '/api/tt';
+
+async function fetchTT(path) {
+  const res = await fetch(API_BASE + path);
+  if (!res.ok) throw new Error(`API ${res.status}`);
+  return res.json();
+}
+
+// Transform Token Terminal API responses into our internal format
+function transformAPIData(projectId, config, metricsData, financialData) {
+  const monthly = [];
+  const byMonth = {};
+
+  // Group metrics by month
+  (metricsData.data || []).forEach(row => {
+    const month = row.timestamp?.slice(0, 7);
+    if (!month) return;
+    if (!byMonth[month]) byMonth[month] = {};
+    // TT returns values as strings
+    if (row.metric_id && row.value !== undefined) {
+      byMonth[month][row.metric_id] = parseFloat(row.value) || 0;
+    }
+    // Or flat fields
+    ['revenue','fees','earnings','token_incentives','cost_of_revenue',
+     'supply_side_fees','tvl','price','fully_diluted_market_cap',
+     'circulating_market_cap','daily_active_users','token_trading_volume'
+    ].forEach(key => {
+      if (row[key] !== undefined) byMonth[month][key] = parseFloat(row[key]) || 0;
+    });
+  });
+
+  const months = Object.keys(byMonth).sort();
+  months.forEach((month, i) => {
+    const d = byMonth[month];
+    const date = new Date(month + '-01');
+    const revenue = d.revenue || 0;
+    const fees = d.fees || revenue;
+    const earnings = d.earnings || 0;
+    const tokenIncentives = d.token_incentives || d['token-incentives'] || 0;
+    const costOfRevenue = d.cost_of_revenue || d['cost-of-revenue'] || 0;
+    const supplySideFees = d.supply_side_fees || d['supply-side-fees'] || (fees - revenue);
+    const tvl = d.tvl || 0;
+    const fdv = d.fully_diluted_market_cap || d['fully-diluted-market-cap'] || 0;
+    const circMcap = d.circulating_market_cap || d['circulating-market-cap'] || 0;
+    const price = d.price || 0;
+    const dau = d.daily_active_users || d['daily-active-users'] || 0;
+
+    monthly.push({
+      date: date.toISOString().slice(0, 10),
+      month,
+      calMonth: date.getMonth(),
+      revenue, fees, supplySideFees, costOfRevenue, tokenIncentives, earnings,
+      tvl, fdv, circMcap, price, dau: Math.round(dau),
+      takeRate: fees > 0 ? revenue / fees : 0,
+      grossMargin: revenue > 0 ? (revenue - costOfRevenue) / revenue : 0,
+      netMargin: revenue > 0 ? earnings / revenue : 0,
+      psRatio: revenue > 0 ? fdv / (revenue * 12) : 0,
+      revenueYield: fdv > 0 ? (revenue * 12) / fdv : 0,
+      arpu: dau > 0 ? revenue / dau : 0,
+      chainData: {} // chain breakdown requires separate API calls
+    });
+  });
+
+  // Quarterly aggregation
+  const quarterly = [];
+  for (let q = 0; q < Math.ceil(monthly.length / 3); q++) {
+    const qMonths = monthly.slice(q * 3, q * 3 + 3);
+    if (qMonths.length === 0) continue;
+    const firstDate = new Date(qMonths[0].date);
+    const qLabel = `${firstDate.getFullYear()} Q${Math.floor(firstDate.getMonth() / 3) + 1}`;
+    quarterly.push({
+      quarter: qLabel,
+      revenue: qMonths.reduce((s, m) => s + m.revenue, 0),
+      fees: qMonths.reduce((s, m) => s + m.fees, 0),
+      earnings: qMonths.reduce((s, m) => s + m.earnings, 0),
+      tokenIncentives: qMonths.reduce((s, m) => s + m.tokenIncentives, 0),
+      costOfRevenue: qMonths.reduce((s, m) => s + m.costOfRevenue, 0),
+      avgTakeRate: qMonths.reduce((s, m) => s + m.takeRate, 0) / qMonths.length,
+      avgTvl: qMonths.reduce((s, m) => s + m.tvl, 0) / qMonths.length,
+      avgFdv: qMonths.reduce((s, m) => s + m.fdv, 0) / qMonths.length,
+      avgDau: Math.round(qMonths.reduce((s, m) => s + m.dau, 0) / qMonths.length),
+    });
+  }
+
+  // Compute consistency & sticky index
+  const revValues = monthly.map(m => m.revenue);
+  const revMean = revValues.reduce((a, b) => a + b, 0) / Math.max(revValues.length, 1);
+  const revStd = Math.sqrt(revValues.reduce((s, v) => s + Math.pow(v - revMean, 2), 0) / Math.max(revValues.length, 1));
+  const consistency = Math.max(0, 1 - revStd / Math.max(revMean, 1));
+  let stickySum = 0;
+  for (let i = 1; i < monthly.length; i++) {
+    const mx = Math.max(monthly[i].revenue, monthly[i - 1].revenue);
+    stickySum += mx > 0 ? Math.min(monthly[i].revenue, monthly[i - 1].revenue) / mx : 0;
+  }
+  const stickyIndex = monthly.length > 1 ? stickySum / (monthly.length - 1) : 0;
+
+  return {
+    ...config,
+    monthly, quarterly,
+    cohorts: config.cohorts || [],
+    consistency, stickyIndex
+  };
+}
+
+async function fetchAllLiveData() {
+  // Step 1: check if API is available
+  const health = await fetch('/health').then(r => r.json()).catch(() => ({ api_configured: false }));
+  if (!health.api_configured) return null;
+
+  // Step 2: fetch projects list
+  const projectsList = await fetchTT('/projects').catch(() => null);
+  if (!projectsList?.data) return null;
+
+  // Step 3: for each of our target protocols, fetch metrics
+  const targetIds = PROTOCOLS.map(p => p.id);
+  const results = {};
+
+  // Use the bulk metrics endpoint for efficiency
+  const metricIds = 'fees,revenue,earnings,token-incentives,cost-of-revenue,supply-side-fees,tvl,price,fully-diluted-market-cap,circulating-market-cap,daily-active-users';
+
+  const fetches = PROTOCOLS.map(async (config) => {
+    try {
+      const metrics = await fetchTT(`/projects/${config.id}/metrics?metric_ids=${metricIds}&interval=2y`);
+      // Generate synthetic cohorts since the cohort API may not be programmatic
+      const rng = mulberry32(hashCode(config.id + '_cohort'));
+      const cohorts = [];
+      for (let c = 0; c < 12; c++) {
+        const row = [1.0];
+        for (let m = 1; m <= 11; m++) {
+          const base = config.retentionBase * Math.pow(0.75, m - 1);
+          row.push(Math.min(row[m - 1], Math.max(0.01, base * (0.8 + rng() * 0.4))));
+        }
+        cohorts.push(row);
+      }
+      config.cohorts = cohorts;
+      results[config.id] = transformAPIData(config.id, config, metrics, null);
+    } catch (e) {
+      console.warn(`Failed to fetch ${config.id}:`, e.message);
+    }
+  });
+
+  await Promise.all(fetches);
+
+  // If we got less than half, fall back to mock
+  if (Object.keys(results).length < PROTOCOLS.length / 2) return null;
+
+  // Fill missing protocols with mock data
+  const mockData = generateAllData();
+  PROTOCOLS.forEach(p => {
+    if (!results[p.id]) results[p.id] = mockData[p.id];
+  });
+
+  return results;
+}
+
+// ===================================================================
+// MOCK DATA GENERATOR (fallback)
 // ===================================================================
 function generateAllData() {
   const data = {};
@@ -1481,8 +1639,26 @@ function renderActiveTab() {
 // ===================================================================
 // INITIALIZATION
 // ===================================================================
-document.addEventListener('DOMContentLoaded', () => {
-  STATE.data = generateAllData();
+document.addEventListener('DOMContentLoaded', async () => {
+  // Try live API first, fall back to mock data
+  const indicator = document.querySelector('.header-meta');
+  try {
+    indicator.textContent = 'Loading live data from Token Terminal API...';
+    const liveData = await fetchAllLiveData();
+    if (liveData) {
+      STATE.data = liveData;
+      STATE.dataSource = 'live';
+      indicator.textContent = 'Live data via Token Terminal API \u00b7 15-min cache';
+      indicator.style.color = 'var(--accent-teal)';
+    } else {
+      throw new Error('fallback');
+    }
+  } catch {
+    STATE.data = generateAllData();
+    STATE.dataSource = 'mock';
+    indicator.textContent = 'Mock data \u00b7 Set TT_API_KEY env var for live data';
+    indicator.style.color = 'var(--accent-orange)';
+  }
 
   // Tab buttons
   document.querySelectorAll('.tab-btn').forEach(btn => {

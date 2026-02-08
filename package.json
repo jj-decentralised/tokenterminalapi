@@ -1,0 +1,12 @@
+{
+  "name": "tt-protocol-analytics",
+  "version": "1.0.0",
+  "description": "Bloomberg-style crypto protocol analytics dashboard powered by Token Terminal API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
