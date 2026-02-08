@@ -120,10 +120,15 @@ function ensureLoadingOverlay() {
 
 /**
  * Update the text shown inside the loading overlay.
+ * Optionally accepts a progress fraction (0-1) to update the progress bar.
  */
-function setLoadingText(text) {
+function setLoadingText(text, progress) {
   var el = document.querySelector('#loading-overlay .loading-text');
   if (el) el.textContent = text;
+  if (typeof progress === 'number') {
+    var bar = document.getElementById('loading-bar-fill');
+    if (bar) bar.style.width = Math.min(100, Math.max(0, progress * 100)) + '%';
+  }
 }
 
 /**
@@ -192,6 +197,23 @@ function buildSectorUI() {
       html += '<span style="color:var(--text-muted);font-size:10px;">+' + (sectors.length - 6) + ' more</span>';
     }
     legendEl.innerHTML = html;
+  }
+}
+
+// ===================================================================
+// PROTOCOL COUNT (FOOTER)
+// ===================================================================
+
+/**
+ * Update the footer protocol count indicator to show how many protocols
+ * are visible after filtering vs total.
+ */
+function updateProtocolCount() {
+  var countEl = document.getElementById('footer-protocol-count');
+  if (countEl && STATE.data) {
+    var total = Object.keys(STATE.data).length;
+    var filtered = getFilteredProtocols().length;
+    countEl.textContent = filtered === total ? total + ' protocols' : filtered + '/' + total + ' protocols';
   }
 }
 
@@ -287,8 +309,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     setLoadingText('Connecting to Token Terminal API...');
 
     var liveData = await fetchAllLiveData(function (done, total, msg) {
-      if (msg) setLoadingText(msg);
-      else if (total > 0) setLoadingText('Loading protocols... ' + done + '/' + total);
+      var progress = total > 0 ? done / total : 0;
+      if (msg) setLoadingText(msg, progress);
+      else if (total > 0) setLoadingText('Loading protocols... ' + done + '/' + total, progress);
     });
 
     if (liveData && Object.keys(liveData).length > 0) {
@@ -402,6 +425,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   if (sectorSelect) {
     sectorSelect.addEventListener('change', function (e) {
       STATE.sector = e.target.value;
+      updateProtocolCount();
       renderActiveTab();
       encodeStateToURL();
     });
@@ -417,6 +441,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
       // Rebuild sector dropdown (counts may change with chain filter)
       buildSectorUI();
+      updateProtocolCount();
 
       renderActiveTab();
       encodeStateToURL();
@@ -440,6 +465,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   // ------------------------------------------------------------------
   applyStateToDom();
   buildSectorUI();
+  updateProtocolCount();
 
   // ------------------------------------------------------------------
   // k. Initial render
@@ -488,6 +514,7 @@ window.addEventListener('hashchange', function () {
   // Sync DOM controls to the newly decoded state
   applyStateToDom();
   buildSectorUI();
+  updateProtocolCount();
 
   // Re-render the (possibly changed) active tab
   switchTab(STATE.activeTab);
