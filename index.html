@@ -102,6 +102,8 @@
     <button class="tab-btn"        data-tab="retention"     role="tab" aria-label="Retention and Seasonality tab" aria-selected="false">Retention &amp; Seasonality <span class="tab-badge">4</span></button>
     <button class="tab-btn"        data-tab="ltv"           role="tab" aria-label="LTV and Incentives tab"        aria-selected="false">LTV &amp; Incentives <span class="tab-badge">4</span></button>
     <button class="tab-btn"        data-tab="margins"       role="tab" aria-label="Margins and Valuation tab"     aria-selected="false">Margins &amp; Valuation <span class="tab-badge">4</span></button>
+    <button class="tab-btn"        data-tab="compare"       role="tab" aria-label="Protocol comparison tab"        aria-selected="false">Compare</button>
+    <button class="tab-btn"        data-tab="screener"      role="tab" aria-label="Protocol screener tab"          aria-selected="false">Screener</button>
   </nav>
 
   <!-- ============================================================
@@ -433,6 +435,75 @@
           </div>
         </div>
 
+      </div>
+    </section>
+
+    <!-- =================== Protocol Comparison =================== -->
+    <section id="tab-compare" class="tab-content" role="tabpanel" aria-label="Protocol comparison">
+      <div class="compare-selector">
+        <label class="filter-label">Select Protocols to Compare</label>
+        <div class="compare-inputs" id="compare-inputs">
+          <select class="compare-select" data-slot="0"><option value="">Select protocol...</option></select>
+          <select class="compare-select" data-slot="1"><option value="">Select protocol...</option></select>
+          <select class="compare-select" data-slot="2"><option value="">Add 3rd (optional)...</option></select>
+          <select class="compare-select" data-slot="3"><option value="">Add 4th (optional)...</option></select>
+        </div>
+      </div>
+      <div class="compare-kpi-grid" id="compare-kpis"></div>
+      <div class="chart-grid">
+        <div class="chart-panel span-2">
+          <div class="panel-header"><h3>Revenue Comparison</h3></div>
+          <div id="chart-compare-revenue" class="chart-container"></div>
+        </div>
+        <div class="chart-panel">
+          <div class="panel-header"><h3>P/S Ratio Comparison</h3></div>
+          <div id="chart-compare-ps" class="chart-container"></div>
+        </div>
+        <div class="chart-panel">
+          <div class="panel-header"><h3>Margin Comparison</h3></div>
+          <div id="chart-compare-margins" class="chart-container"></div>
+        </div>
+        <div class="chart-panel span-2">
+          <div class="panel-header"><h3>Metrics Summary</h3></div>
+          <div class="table-wrapper">
+            <table id="table-compare" role="table">
+              <thead><tr><th>Metric</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== Protocol Screener =================== -->
+    <section id="tab-screener" class="tab-content" role="tabpanel" aria-label="Protocol screener">
+      <div class="screener-controls">
+        <div class="screener-count" id="screener-count">0 protocols</div>
+        <div class="screener-actions">
+          <button class="export-btn" id="screener-csv">Export CSV</button>
+        </div>
+      </div>
+      <div class="table-wrapper screener-table-wrap">
+        <table id="table-screener" class="data-table" role="table">
+          <thead>
+            <tr>
+              <th data-col="name">Protocol</th>
+              <th data-col="sector">Sector</th>
+              <th data-col="revenue">Revenue (Mo.)</th>
+              <th data-col="revGrowth">Rev Growth</th>
+              <th data-col="fees">Fees (Mo.)</th>
+              <th data-col="takeRate">Take Rate</th>
+              <th data-col="fdv">FDV</th>
+              <th data-col="ps">P/S</th>
+              <th data-col="tvl">TVL</th>
+              <th data-col="dau">DAU</th>
+              <th data-col="grossMargin">Gross Margin</th>
+              <th data-col="netMargin">Net Margin</th>
+              <th data-col="consistency">Consistency</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
     </section>
 

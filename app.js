@@ -196,6 +196,9 @@ function renderActiveTab() {
       case 'margins':
         renderMarginsTab();
         break;
+      case 'compare':
+        renderCompareTab();
+        break;
       default:
         renderRevenueTab();
         break;
@@ -319,6 +322,42 @@ function buildSectorUI() {
     }
     legendEl.innerHTML = html;
   }
+}
+
+// ===================================================================
+// POPULATE COMPARE DROPDOWNS
+// ===================================================================
+
+/**
+ * Fill each .compare-select dropdown with all loaded protocols,
+ * sorted by latest-month revenue descending. Attach change listeners
+ * so switching a dropdown re-renders the compare tab.
+ */
+function populateCompareDropdowns() {
+  if (!STATE.data) return;
+  var sorted = Object.values(STATE.data).sort(function (a, b) {
+    var aR = a.monthly && a.monthly.length > 0 ? a.monthly[a.monthly.length - 1].revenue : 0;
+    var bR = b.monthly && b.monthly.length > 0 ? b.monthly[b.monthly.length - 1].revenue : 0;
+    return bR - aR;
+  });
+  document.querySelectorAll('.compare-select').forEach(function (sel) {
+    var current = sel.value;
+    var placeholder = sel.options[0] ? sel.options[0].textContent : 'Select protocol...';
+    sel.innerHTML = '<option value="">' + placeholder + '</option>';
+    sorted.forEach(function (p) {
+      var opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      if (p.id === current) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    // Remove existing listeners by cloning (avoids duplicate listeners on re-populate)
+    var newSel = sel.cloneNode(true);
+    sel.parentNode.replaceChild(newSel, sel);
+    newSel.addEventListener('change', function () {
+      if (STATE.activeTab === 'compare') renderCompareTab();
+    });
+  });
 }
 
 // ===================================================================
@@ -677,6 +716,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   // ------------------------------------------------------------------
   applyStateToDom();
   buildSectorUI();
+  populateCompareDropdowns();
   updateProtocolCount();
 
   // ------------------------------------------------------------------
@@ -726,6 +766,7 @@ window.addEventListener('hashchange', function () {
   // Sync DOM controls to the newly decoded state
   applyStateToDom();
   buildSectorUI();
+  populateCompareDropdowns();
   updateProtocolCount();
 
   // Re-render the (possibly changed) active tab

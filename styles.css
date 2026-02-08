@@ -746,11 +746,94 @@ main { padding: var(--spacing-lg) var(--spacing-xl); }
   text-decoration: underline;
 }
 
+/* ===== CHART GRID (for tab panels) ===== */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-md);
+}
+.chart-grid .span-2 { grid-column: span 2; }
+.chart-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+.table-wrapper {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 400px;
+  flex: 1;
+  position: relative;
+}
+
+/* ===== PROTOCOL COMPARISON ===== */
+.compare-selector {
+  padding: 16px 20px;
+  background: var(--bg-panel);
+  border-radius: 6px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+}
+.compare-inputs {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.compare-select {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+  min-width: 180px;
+}
+.compare-select:focus { border-color: var(--accent-blue); }
+.compare-kpi-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.compare-row {
+  display: grid;
+  grid-template-columns: 120px repeat(auto-fit, minmax(80px, 1fr));
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  align-items: center;
+}
+.compare-header {
+  font-weight: 600;
+  border-bottom: 2px solid var(--border);
+}
+.compare-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.compare-val {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1200px) {
   .grid { grid-template-columns: 1fr; }
   .grid .span-2 { grid-column: span 1; }
+  .chart-grid { grid-template-columns: 1fr; }
+  .chart-grid .span-2 { grid-column: span 1; }
   .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .compare-inputs { flex-direction: column; }
+  .compare-select { min-width: 100%; }
 }
 @media (max-width: 768px) {
   .kpi-row { grid-template-columns: 1fr; }

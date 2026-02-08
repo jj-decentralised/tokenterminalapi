@@ -1142,3 +1142,161 @@ function _marginsTable(wd) {
   makeSortable(document.getElementById('table-margins'));
   return l1fn;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   8.  renderCompareTab — Protocol Comparison
+   ══════════════════════════════════════════════════════════════════════════ */
+
+function renderCompareTab() {
+  // Get selected protocol IDs from the dropdowns
+  var selects = document.querySelectorAll('.compare-select');
+  var selectedIds = [];
+  selects.forEach(function (sel) {
+    if (sel.value) selectedIds.push(sel.value);
+  });
+
+  if (selectedIds.length < 2) {
+    // Show helper message
+    var container = document.getElementById('compare-kpis');
+    if (container) container.innerHTML = '<div class="empty-state">Select at least 2 protocols to compare</div>';
+    ['chart-compare-revenue', 'chart-compare-ps', 'chart-compare-margins'].forEach(emptyState);
+    var tbody0 = document.querySelector('#table-compare tbody');
+    if (tbody0) tbody0.innerHTML = '';
+    return;
+  }
+
+  // Collect data for selected protocols
+  var protocols = selectedIds.map(function (id) {
+    if (!STATE.data[id]) return null;
+    var p = STATE.data[id];
+    var mo = getFilteredMonthly(p);
+    return { p: p, mo: mo, last: mo.length > 0 ? mo[mo.length - 1] : null };
+  }).filter(Boolean);
+
+  if (protocols.length < 2) {
+    var container2 = document.getElementById('compare-kpis');
+    if (container2) container2.innerHTML = '<div class="empty-state">Select at least 2 protocols to compare</div>';
+    ['chart-compare-revenue', 'chart-compare-ps', 'chart-compare-margins'].forEach(emptyState);
+    return;
+  }
+
+  // COMPARE COLORS - use distinct colors
+  var compareColors = ['#4a9eff', '#fb8b1e', '#4af6c3', '#a78bfa'];
+
+  // KPI comparison cards - show side-by-side KPIs
+  var kpiEl = document.getElementById('compare-kpis');
+  if (kpiEl) {
+    var cols = protocols.length;
+    kpiEl.style.gridTemplateColumns = '120px ' + ('1fr '.repeat(cols));
+
+    var metrics = [
+      { label: 'Revenue (Monthly)', fn: function(l) { return fmtUSD(l ? l.revenue : 0); } },
+      { label: 'FDV', fn: function(l) { return fmtUSD(l ? l.fdv : 0); } },
+      { label: 'P/S Ratio', fn: function(l) { return fmtX(l ? l.psRatio : 0); } },
+      { label: 'TVL', fn: function(l) { return fmtUSD(l ? l.tvl : 0); } },
+      { label: 'DAU', fn: function(l) { return fmtNum(l ? l.dau : 0); } },
+      { label: 'Gross Margin', fn: function(l) { return fmtPct(l ? l.grossMargin : 0); } },
+      { label: 'Net Margin', fn: function(l) { return fmtPct(l ? l.netMargin : 0); } },
+      { label: 'Take Rate', fn: function(l) { return fmtPct(l ? l.takeRate : 0); } }
+    ];
+
+    var h = '';
+    // Header row
+    h += '<div class="compare-row compare-header"><div class="compare-label">Protocol</div>';
+    protocols.forEach(function (d, i) {
+      h += '<div class="compare-val" style="color:' + compareColors[i] + ';font-weight:600">' + d.p.name + '</div>';
+    });
+    h += '</div>';
+
+    // Metric rows
+    metrics.forEach(function (m) {
+      h += '<div class="compare-row"><div class="compare-label">' + m.label + '</div>';
+      protocols.forEach(function (d) {
+        h += '<div class="compare-val">' + m.fn(d.last) + '</div>';
+      });
+      h += '</div>';
+    });
+    kpiEl.innerHTML = h;
+  }
+
+  // Revenue comparison chart (line chart)
+  var revTraces = protocols.map(function (d, i) {
+    return {
+      x: d.mo.map(function (m) { return m.month; }),
+      y: d.mo.map(function (m) { return m.revenue; }),
+      name: d.p.name,
+      type: 'scatter', mode: 'lines+markers',
+      line: { color: compareColors[i], width: 2 }, marker: { size: 4 },
+      hovertemplate: d.p.name + '<br>%{x}: %{y:$,.0f}<extra></extra>'
+    };
+  });
+  safeReact('chart-compare-revenue', revTraces, layoutWith({
+    yaxis: { tickformat: '$,.0s', nticks: 6 },
+    xaxis: { type: 'category' }
+  }));
+
+  // P/S Ratio comparison
+  var psTraces = protocols.map(function (d, i) {
+    var valid = d.mo.filter(function (m) { return m.fdv > 0; });
+    return {
+      x: valid.map(function (m) { return m.month; }),
+      y: valid.map(function (m) { return m.psRatio; }),
+      name: d.p.name,
+      type: 'scatter', mode: 'lines+markers',
+      line: { color: compareColors[i], width: 2 }, marker: { size: 4 },
+      hovertemplate: d.p.name + '<br>%{x}: %{y:.1f}x<extra></extra>'
+    };
+  });
+  safeReact('chart-compare-ps', psTraces, layoutWith({
+    yaxis: { title: 'P/S Ratio', tickformat: ',.0f', ticksuffix: 'x' },
+    xaxis: { type: 'category' }
+  }));
+
+  // Margin comparison (grouped bar)
+  var marginTraces = [];
+  protocols.forEach(function (d, i) {
+    if (d.last) {
+      marginTraces.push({
+        x: ['Gross Margin', 'Net Margin', 'Take Rate'],
+        y: [(d.last.grossMargin || 0) * 100, Math.max(-300, (d.last.netMargin || 0) * 100), (d.last.takeRate || 0) * 100],
+        name: d.p.name,
+        type: 'bar',
+        marker: { color: compareColors[i] },
+        hovertemplate: d.p.name + '<br>%{x}: %{y:.1f}%<extra></extra>'
+      });
+    }
+  });
+  safeReact('chart-compare-margins', marginTraces, layoutWith({
+    barmode: 'group',
+    yaxis: { tickformat: '.0f', ticksuffix: '%' },
+    showlegend: true
+  }));
+
+  // Summary table
+  var tbody = document.querySelector('#table-compare tbody');
+  var thead = document.querySelector('#table-compare thead tr');
+  if (tbody && thead) {
+    thead.innerHTML = '<th>Metric</th>';
+    protocols.forEach(function (d) { thead.innerHTML += '<th>' + d.p.name + '</th>'; });
+
+    var rows = [
+      ['Sector', protocols.map(function(d){ return (SECTOR_LABELS[d.p.sector] || d.p.sector); })],
+      ['Chains', protocols.map(function(d){ return d.p.chains.join(', '); })],
+      ['Revenue', protocols.map(function(d){ return fmtUSD(d.last ? d.last.revenue : 0); })],
+      ['FDV', protocols.map(function(d){ return fmtUSD(d.last ? d.last.fdv : 0); })],
+      ['P/S', protocols.map(function(d){ return fmtX(d.last ? d.last.psRatio : 0); })],
+      ['TVL', protocols.map(function(d){ return fmtUSD(d.last ? d.last.tvl : 0); })],
+      ['DAU', protocols.map(function(d){ return fmtNum(d.last ? d.last.dau : 0); })],
+      ['ARPU', protocols.map(function(d){ return d.last ? '$' + (d.last.arpu||0).toFixed(2) : '\u2014'; })],
+      ['Consistency', protocols.map(function(d){ return (d.p.consistency||0).toFixed(3); })]
+    ];
+
+    var th = '';
+    rows.forEach(function (r) {
+      th += '<tr><td style="font-weight:500">' + r[0] + '</td>';
+      r[1].forEach(function (v) { th += '<td>' + v + '</td>'; });
+      th += '</tr>';
+    });
+    tbody.innerHTML = th;
+  }
+}
