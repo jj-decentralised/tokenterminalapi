@@ -53,14 +53,12 @@
        ============================================================ -->
   <nav class="filter-bar" aria-label="Dashboard filters">
 
-    <!-- Sector toggles -->
+    <!-- Sector dropdown -->
     <div class="filter-group">
-      <label class="filter-label" style="margin-right:0.5rem">Sector</label>
-      <button class="sector-btn active" data-sector="all"             aria-label="Show all sectors">All</button>
-      <button class="sector-btn"        data-sector="lending"        aria-label="Toggle Lending sector">Lending</button>
-      <button class="sector-btn"        data-sector="dex"            aria-label="Toggle DEX sector">DEX</button>
-      <button class="sector-btn"        data-sector="l1"             aria-label="Toggle L1 sector">L1</button>
-      <button class="sector-btn"        data-sector="liquid-staking" aria-label="Toggle Liquid Staking sector">Staking</button>
+      <label class="filter-label" for="sector-select">Sector</label>
+      <select id="sector-select" aria-label="Filter by sector">
+        <option value="all">All Sectors</option>
+      </select>
     </div>
 
     <!-- Chain dropdown -->
@@ -82,14 +80,8 @@
       </select>
     </div>
 
-    <!-- Color legend -->
-    <div class="filter-group">
-      <label class="filter-label">Legend</label>
-      <span class="sector-dot" style="background:#4a9eff"></span> Lending
-      <span class="sector-dot" style="background:#fb8b1e"></span> DEX
-      <span class="sector-dot" style="background:#4af6c3"></span> L1
-      <span class="sector-dot" style="background:#a78bfa"></span> Staking
-    </div>
+    <!-- Dynamic sector legend (built by app.js) -->
+    <div class="filter-group" id="sector-legend"></div>
   </nav>
 
   <!-- ============================================================

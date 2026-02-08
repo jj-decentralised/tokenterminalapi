@@ -1,23 +1,134 @@
 // ===================================================================
-// SECTOR CONSTANTS
+// SECTOR SYSTEM — expanded to cover all Token Terminal sectors
 // ===================================================================
 const SECTOR_COLORS = {
-  'lending': '#4a9eff',
-  'dex': '#fb8b1e',
-  'l1': '#4af6c3',
-  'liquid-staking': '#a78bfa'
+  'lending':         '#4a9eff',
+  'dex':             '#fb8b1e',
+  'l1':              '#4af6c3',
+  'liquid-staking':  '#a78bfa',
+  'derivatives':     '#ff5a54',
+  'bridge':          '#fbbf24',
+  'cdp':             '#34d399',
+  'yield':           '#818cf8',
+  'oracle':          '#f472b6',
+  'nft':             '#c084fc',
+  'gaming':          '#22d3ee',
+  'social':          '#fb923c',
+  'l2':              '#86efac',
+  'infrastructure':  '#94a3b8',
+  'payments':        '#e879f9',
+  'rwa':             '#facc15',
+  'prediction':      '#67e8f9',
+  'launchpad':       '#f0abfc',
+  'ai':              '#a3e635',
+  'other':           '#6b7280'
 };
 const SECTOR_LABELS = {
-  'lending': 'Lending',
-  'dex': 'DEX',
-  'l1': 'L1 Blockchain',
-  'liquid-staking': 'Liquid Staking'
+  'lending':         'Lending',
+  'dex':             'DEX',
+  'l1':              'L1 Blockchain',
+  'liquid-staking':  'Liquid Staking',
+  'derivatives':     'Derivatives',
+  'bridge':          'Bridge',
+  'cdp':             'CDP',
+  'yield':           'Yield',
+  'oracle':          'Oracle',
+  'nft':             'NFT',
+  'gaming':          'Gaming',
+  'social':          'Social',
+  'l2':              'L2',
+  'infrastructure':  'Infrastructure',
+  'payments':        'Payments',
+  'rwa':             'RWA',
+  'prediction':      'Prediction Market',
+  'launchpad':       'Launchpad',
+  'ai':              'AI',
+  'other':           'Other'
+};
+
+// Maps TT API sector names (and common variations) to our normalized keys
+const SECTOR_NORMALIZE = {
+  'lending':                    'lending',
+  'lending-borrowing':          'lending',
+  'lending/borrowing':          'lending',
+  'money-market':               'lending',
+  'dex':                        'dex',
+  'dexs':                       'dex',
+  'dexes':                      'dex',
+  'decentralized-exchange':     'dex',
+  'decentralized-exchanges':    'dex',
+  'exchange':                   'dex',
+  'amm':                        'dex',
+  'l1':                         'l1',
+  'layer-1':                    'l1',
+  'layer1':                     'l1',
+  'blockchain':                 'l1',
+  'liquid-staking':             'liquid-staking',
+  'liquid_staking':             'liquid-staking',
+  'staking':                    'liquid-staking',
+  'derivatives':                'derivatives',
+  'perpetuals':                 'derivatives',
+  'perps':                      'derivatives',
+  'options':                    'derivatives',
+  'bridge':                     'bridge',
+  'bridges':                    'bridge',
+  'cross-chain':                'bridge',
+  'cdp':                        'cdp',
+  'stablecoin':                 'cdp',
+  'yield':                      'yield',
+  'yield-aggregator':           'yield',
+  'yield-farming':              'yield',
+  'oracle':                     'oracle',
+  'oracles':                    'oracle',
+  'nft':                        'nft',
+  'nft-marketplace':            'nft',
+  'gaming':                     'gaming',
+  'gamefi':                     'gaming',
+  'social':                     'social',
+  'socialfi':                   'social',
+  'l2':                         'l2',
+  'layer-2':                    'l2',
+  'layer2':                     'l2',
+  'rollup':                     'l2',
+  'infrastructure':             'infrastructure',
+  'infra':                      'infrastructure',
+  'payments':                   'payments',
+  'payment':                    'payments',
+  'rwa':                        'rwa',
+  'real-world-assets':          'rwa',
+  'prediction':                 'prediction',
+  'prediction-market':          'prediction',
+  'launchpad':                  'launchpad',
+  'ai':                         'ai',
+  'artificial-intelligence':    'ai',
+};
+
+function normalizeSector(raw) {
+  if (!raw) return 'other';
+  var key = raw.toLowerCase().trim().replace(/[\s_]+/g, '-');
+  return SECTOR_NORMALIZE[key] || key;
+}
+
+// Default financial params by sector (for mock data generation)
+const SECTOR_DEFAULTS = {
+  'lending':        { baseRev: 5e6, takeRate: 0.15, growth: 0.02, season: 0.15, incentive: 0.35, vol: 0.10, tvl: 3e9,  fdv: 2e9,  dau: 10000, ret: 0.20 },
+  'dex':            { baseRev: 6e6, takeRate: 0.06, growth: 0.02, season: 0.22, incentive: 0.20, vol: 0.16, tvl: 2e9,  fdv: 2e9,  dau: 50000, ret: 0.09 },
+  'l1':             { baseRev: 50e6,takeRate: 0.65, growth: 0.01, season: 0.20, incentive: 0.08, vol: 0.15, tvl: 10e9, fdv: 50e9, dau: 300000,ret: 0.30 },
+  'liquid-staking': { baseRev: 10e6,takeRate: 0.10, growth: 0.01, season: 0.08, incentive: 0.15, vol: 0.06, tvl: 5e9,  fdv: 1.5e9,dau: 3000,  ret: 0.55 },
+  'derivatives':    { baseRev: 4e6, takeRate: 0.04, growth: 0.03, season: 0.25, incentive: 0.30, vol: 0.20, tvl: 1e9,  fdv: 1.5e9,dau: 15000, ret: 0.12 },
+  'bridge':         { baseRev: 2e6, takeRate: 0.05, growth: 0.01, season: 0.18, incentive: 0.25, vol: 0.14, tvl: 0.8e9,fdv: 0.8e9,dau: 8000,  ret: 0.10 },
+  'cdp':            { baseRev: 3e6, takeRate: 0.20, growth: 0.01, season: 0.10, incentive: 0.15, vol: 0.08, tvl: 4e9,  fdv: 1e9,  dau: 5000,  ret: 0.35 },
+  'yield':          { baseRev: 2e6, takeRate: 0.10, growth: 0.01, season: 0.15, incentive: 0.40, vol: 0.12, tvl: 1.5e9,fdv: 0.5e9,dau: 6000,  ret: 0.15 },
+  'oracle':         { baseRev: 1e6, takeRate: 0.50, growth: 0.01, season: 0.08, incentive: 0.10, vol: 0.06, tvl: 0.1e9,fdv: 2e9,  dau: 1000,  ret: 0.50 },
+  'nft':            { baseRev: 3e6, takeRate: 0.025,growth: 0.00, season: 0.30, incentive: 0.10, vol: 0.25, tvl: 0.2e9,fdv: 0.5e9,dau: 20000, ret: 0.06 },
+  'l2':             { baseRev: 8e6, takeRate: 0.70, growth: 0.03, season: 0.18, incentive: 0.12, vol: 0.14, tvl: 3e9,  fdv: 10e9, dau: 100000,ret: 0.25 },
+  'other':          { baseRev: 2e6, takeRate: 0.10, growth: 0.01, season: 0.15, incentive: 0.20, vol: 0.12, tvl: 0.5e9,fdv: 0.5e9,dau: 5000,  ret: 0.15 },
 };
 
 // ===================================================================
-// PROTOCOL CONFIGURATIONS
+// SEED PROTOCOLS — hand-tuned configs for high-quality mock data
 // ===================================================================
-const PROTOCOLS = [
+const SEED_PROTOCOLS = [
   { id: 'aave', name: 'Aave', sector: 'lending', chains: ['ethereum','polygon','arbitrum','base','optimism'],
     baseRevenue: 14e6, growthRate: 0.025, seasonAmp: 0.18, takeRate: 0.15, incentiveRatio: 0.30, volatility: 0.10,
     tvlBase: 12e9, fdvBase: 5e9, dauBase: 25000, retentionBase: 0.22,
@@ -80,10 +191,14 @@ const PROTOCOLS = [
     chainDist: {solana:1.0} }
 ];
 
-// Slug aliases for Token Terminal API (some project IDs differ from our internal IDs)
+// Build a quick lookup for seed protocols
+const SEED_MAP = {};
+SEED_PROTOCOLS.forEach(function (p) { SEED_MAP[p.id] = p; });
+
+// Slug aliases for Token Terminal API (some project IDs differ)
 const SLUG_ALIASES = {
-  'lido': ['lido', 'lido-finance', 'lido-dao'],
-  'bnb-chain': ['bnb-chain', 'bnb-smart-chain', 'binance-smart-chain', 'bsc'],
+  'lido':        ['lido', 'lido-finance', 'lido-dao'],
+  'bnb-chain':   ['bnb-chain', 'bnb-smart-chain', 'binance-smart-chain', 'bsc'],
   'rocket-pool': ['rocket-pool', 'rocketpool'],
   'pancakeswap': ['pancakeswap', 'pancake-swap'],
 };
@@ -107,159 +222,324 @@ function hashCode(s) {
 }
 
 // ===================================================================
+// DERIVE PROTOCOL CONFIG FROM API METADATA
+// ===================================================================
+// When we discover a protocol from the TT API that's NOT in our seed
+// list, we generate reasonable mock-data params from its sector.
+function deriveProtocolConfig(projectMeta) {
+  var sector = projectMeta.sector || 'other';
+  var defaults = SECTOR_DEFAULTS[sector] || SECTOR_DEFAULTS['other'];
+  var rng = mulberry32(hashCode(projectMeta.id));
+
+  // Scale base revenue randomly within 0.1x–3x of sector default
+  var revScale = 0.1 + rng() * 2.9;
+  var tvlScale = 0.1 + rng() * 2.9;
+  var fdvScale = 0.1 + rng() * 2.9;
+
+  return {
+    id: projectMeta.id,
+    name: projectMeta.name,
+    sector: sector,
+    chains: projectMeta.chains || ['ethereum'],
+    baseRevenue: defaults.baseRev * revScale,
+    growthRate: defaults.growth * (0.5 + rng()),
+    seasonAmp: defaults.season * (0.7 + rng() * 0.6),
+    takeRate: defaults.takeRate * (0.5 + rng()),
+    incentiveRatio: defaults.incentive * (0.5 + rng()),
+    volatility: defaults.vol * (0.7 + rng() * 0.6),
+    tvlBase: defaults.tvl * tvlScale,
+    fdvBase: defaults.fdv * fdvScale,
+    dauBase: Math.round(defaults.dau * (0.2 + rng() * 2.0)),
+    retentionBase: defaults.ret * (0.6 + rng() * 0.8),
+    chainDist: buildChainDist(projectMeta.chains || ['ethereum'], rng),
+  };
+}
+
+function buildChainDist(chains, rng) {
+  if (!chains || chains.length === 0) return { ethereum: 1.0 };
+  if (chains.length === 1) {
+    var d = {};
+    d[chains[0]] = 1.0;
+    return d;
+  }
+  var dist = {};
+  var total = 0;
+  chains.forEach(function (c) {
+    var w = 0.1 + rng() * 0.9;
+    dist[c] = w;
+    total += w;
+  });
+  // Normalize to sum to 1.0
+  chains.forEach(function (c) { dist[c] /= total; });
+  return dist;
+}
+
+// ===================================================================
+// COHORT GENERATION HELPER
+// ===================================================================
+function generateCohorts(retentionBase, id) {
+  var rng = mulberry32(hashCode((id || '') + '_cohort'));
+  var cohorts = [];
+  for (var c = 0; c < 12; c++) {
+    var row = [1.0];
+    for (var m = 1; m <= 11; m++) {
+      var base = retentionBase * Math.pow(0.75, m - 1);
+      row.push(Math.min(row[m - 1], Math.max(0.01, base * (0.8 + rng() * 0.4))));
+    }
+    cohorts.push(row);
+  }
+  return cohorts;
+}
+
+// ===================================================================
 // TOKEN TERMINAL API LAYER
 // ===================================================================
 const API_BASE = '/api/tt';
-
-// Track per-protocol fetch status
 const FETCH_STATUS = {};
+// Maximum number of protocols to load from API
+const MAX_PROTOCOLS = 500;
+// Concurrency for batch fetching (stay well within 1000 req/min)
+const BATCH_CONCURRENCY = 15;
+const BATCH_DELAY_MS = 200;
 
 async function fetchTT(path) {
   const res = await fetch(API_BASE + path);
-  if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
+  if (!res.ok) throw new Error('API ' + res.status + ': ' + path);
   return res.json();
 }
 
-async function fetchWithSlugRetry(config) {
-  const aliases = SLUG_ALIASES[config.id] || [config.id];
+async function fetchWithSlugRetry(projectId) {
+  const aliases = SLUG_ALIASES[projectId] || [projectId];
   const metricIds = 'fees,revenue,earnings,token-incentives,cost-of-revenue,supply-side-fees,tvl,price,fully-diluted-market-cap,circulating-market-cap,daily-active-users';
 
   for (const slug of aliases) {
     try {
-      const metrics = await fetchTT(`/projects/${slug}/metrics?metric_ids=${metricIds}&interval=2y`);
-      if (metrics?.data?.length > 0) {
-        FETCH_STATUS[config.id] = { status: 'ok', slug, count: metrics.data.length };
+      const metrics = await fetchTT('/projects/' + slug + '/metrics?metric_ids=' + metricIds + '&interval=2y');
+      if (metrics && (metrics.data?.length > 0 || (Array.isArray(metrics) && metrics.length > 0))) {
+        FETCH_STATUS[projectId] = { status: 'ok', slug: slug, count: (metrics.data || metrics).length };
         return metrics;
       }
     } catch (e) {
       // Try next alias
     }
   }
-  FETCH_STATUS[config.id] = { status: 'failed', error: 'All slug aliases returned 404' };
-  throw new Error(`All slug aliases failed for ${config.id}`);
+  FETCH_STATUS[projectId] = { status: 'failed', error: 'All slug aliases returned 404' };
+  throw new Error('All slug aliases failed for ' + projectId);
 }
 
-// Transform Token Terminal API responses into our internal format
+// ===================================================================
+// DYNAMIC PROJECT DISCOVERY
+// ===================================================================
+async function fetchProjectList() {
+  try {
+    var json = await fetchTT('/projects');
+    // TT API may return { data: [...] } or [...] directly
+    var projects = Array.isArray(json) ? json : (json.data || json.projects || []);
+
+    return projects.map(function (p) {
+      // Parse out the fields we need — handle various API response formats
+      var id = p.project_id || p.id || p.slug || '';
+      var name = p.name || p.project_name || id;
+      var sector = normalizeSector(
+        p.market_sector || p.sector || p.category || p.market_sector_slug || ''
+      );
+
+      // Chains may be provided in various formats
+      var chains = [];
+      if (Array.isArray(p.chains)) {
+        chains = p.chains;
+      } else if (Array.isArray(p.blockchains)) {
+        chains = p.blockchains;
+      } else if (typeof p.chain === 'string') {
+        chains = [p.chain];
+      }
+      chains = chains.map(function (c) {
+        return (c.slug || c.name || c).toString().toLowerCase();
+      });
+
+      // Revenue for ranking (if available in listing)
+      var revenue = null;
+      if (p.revenue !== undefined) revenue = parseFloat(p.revenue);
+      else if (p.monthly_revenue !== undefined) revenue = parseFloat(p.monthly_revenue);
+      else if (p.revenue_30d !== undefined) revenue = parseFloat(p.revenue_30d);
+
+      return {
+        id: id.toLowerCase(),
+        name: name,
+        sector: sector,
+        chains: chains.length > 0 ? chains : ['ethereum'],
+        revenue: revenue,
+        symbol: p.symbol || p.token_symbol || '',
+      };
+    }).filter(function (p) { return p.id && p.name; });
+  } catch (e) {
+    console.warn('[fetchProjectList] Failed:', e.message);
+    return null;
+  }
+}
+
+// ===================================================================
+// BATCH FETCH WITH CONCURRENCY CONTROL
+// ===================================================================
+async function batchFetchMetrics(projectIds, onProgress) {
+  var results = {};
+  var completed = 0;
+  var total = projectIds.length;
+
+  for (var i = 0; i < total; i += BATCH_CONCURRENCY) {
+    var chunk = projectIds.slice(i, i + BATCH_CONCURRENCY);
+
+    var chunkResults = await Promise.allSettled(
+      chunk.map(function (pid) {
+        return fetchWithSlugRetry(pid).then(function (data) {
+          return { id: pid, data: data };
+        });
+      })
+    );
+
+    chunkResults.forEach(function (result) {
+      if (result.status === 'fulfilled' && result.value) {
+        results[result.value.id] = result.value.data;
+      }
+    });
+
+    completed = Math.min(completed + chunk.length, total);
+    if (onProgress) onProgress(completed, total);
+
+    // Rate limit: pause between batches
+    if (i + BATCH_CONCURRENCY < total) {
+      await new Promise(function (r) { setTimeout(r, BATCH_DELAY_MS); });
+    }
+  }
+
+  return results;
+}
+
+// ===================================================================
+// TRANSFORM API DATA
+// ===================================================================
 function transformAPIData(projectId, config, metricsData) {
   const monthly = [];
   const byMonth = {};
 
-  // Group metrics by month — TT API returns one row per metric per timestamp
-  (metricsData.data || []).forEach(row => {
-    const month = row.timestamp?.slice(0, 7);
+  // Group metrics by month
+  var rows = metricsData.data || (Array.isArray(metricsData) ? metricsData : []);
+  rows.forEach(function (row) {
+    const month = (row.timestamp || row.date || '').slice(0, 7);
     if (!month) return;
     if (!byMonth[month]) byMonth[month] = {};
 
-    // Token Terminal uses metric_id field with value field
-    const metricId = row.metric_id;
-    const value = parseFloat(row.value);
+    // Handle metric_id + value format
+    var metricId = row.metric_id;
+    var value = parseFloat(row.value);
     if (metricId && !isNaN(value)) {
       byMonth[month][metricId] = value;
     }
 
-    // Also check for flat fields (some endpoints return them directly)
+    // Handle flat field format
     ['revenue','fees','earnings','token_incentives','cost_of_revenue',
      'supply_side_fees','tvl','price','fully_diluted_market_cap',
      'circulating_market_cap','daily_active_users','token_trading_volume'
-    ].forEach(key => {
+    ].forEach(function (key) {
       if (row[key] !== undefined) {
-        const v = parseFloat(row[key]);
+        var v = parseFloat(row[key]);
         if (!isNaN(v)) byMonth[month][key] = v;
       }
     });
   });
 
   const months = Object.keys(byMonth).sort();
-  months.forEach((month) => {
+  months.forEach(function (month) {
     const d = byMonth[month];
     const date = new Date(month + '-01');
 
     // Resolve field names with all known aliases
-    const revenue = d.revenue || d['revenue'] || 0;
-    const fees = d.fees || d['fees'] || revenue;
-    const earnings = d.earnings || d['earnings'] || 0;
-    const tokenIncentives = d['token-incentives'] || d.token_incentives || d['token_incentives'] || 0;
-    const costOfRevenue = d['cost-of-revenue'] || d.cost_of_revenue || d['cost_of_revenue'] || 0;
-    const supplySideFees = d['supply-side-fees'] || d.supply_side_fees || d['supply_side_fees'] || (fees - revenue);
-    const tvl = d.tvl || d['tvl'] || 0;
-    const fdv = d['fully-diluted-market-cap'] || d.fully_diluted_market_cap || d['fully_diluted_market_cap'] || d['market-cap-fully-diluted'] || d['fdv'] || 0;
-    const circMcap = d['circulating-market-cap'] || d.circulating_market_cap || d['circulating_market_cap'] || d['market-cap-circulating'] || 0;
-    const price = d.price || d['price'] || 0;
-    const dau = d['daily-active-users'] || d.daily_active_users || d['daily_active_users'] || d['active-users'] || 0;
+    const revenue = d.revenue || 0;
+    const fees = d.fees || revenue;
+    const earnings = d.earnings || 0;
+    const tokenIncentives = d['token-incentives'] || d.token_incentives || 0;
+    const costOfRevenue = d['cost-of-revenue'] || d.cost_of_revenue || 0;
+    const supplySideFees = d['supply-side-fees'] || d.supply_side_fees || (fees - revenue);
+    const tvl = d.tvl || 0;
+    const fdv = d['fully-diluted-market-cap'] || d.fully_diluted_market_cap || d['market-cap-fully-diluted'] || d.fdv || 0;
+    const circMcap = d['circulating-market-cap'] || d.circulating_market_cap || d['market-cap-circulating'] || 0;
+    const price = d.price || 0;
+    const dau = d['daily-active-users'] || d.daily_active_users || d['active-users'] || 0;
 
     monthly.push({
       date: date.toISOString().slice(0, 10),
-      month,
+      month: month,
       calMonth: date.getMonth(),
-      revenue, fees, supplySideFees, costOfRevenue, tokenIncentives, earnings,
-      tvl, fdv, circMcap, price, dau: Math.max(0, Math.round(dau)),
+      revenue: revenue, fees: fees, supplySideFees: supplySideFees,
+      costOfRevenue: costOfRevenue, tokenIncentives: tokenIncentives, earnings: earnings,
+      tvl: tvl, fdv: fdv, circMcap: circMcap, price: price,
+      dau: Math.max(0, Math.round(dau)),
       takeRate: safeDiv(revenue, fees, 0),
       grossMargin: safeDiv(revenue - costOfRevenue, revenue, 0),
       netMargin: safeDiv(earnings, revenue, 0),
       psRatio: safeDiv(fdv, revenue * 12, 0),
       revenueYield: safeDiv(revenue * 12, fdv, 0),
-      arpu: safeDiv(revenue, Math.max(dau, 0), 0),
+      arpu: safeDiv(revenue, Math.max(dau, 1), 0),
       chainData: {}
     });
   });
 
-  // Quarterly aggregation
   const quarterly = buildQuarterly(monthly);
-
-  // Compute derived metrics
   const { consistency, stickyIndex } = computeDerivedMetrics(monthly);
 
   return {
-    ...config,
-    monthly, quarterly,
+    id: config.id,
+    name: config.name,
+    sector: config.sector,
+    chains: config.chains,
+    chainDist: config.chainDist || {},
+    monthly: monthly,
+    quarterly: quarterly,
     cohorts: config.cohorts || [],
-    consistency, stickyIndex
+    consistency: consistency,
+    stickyIndex: stickyIndex
   };
 }
 
 function buildQuarterly(monthly) {
-  const quarterly = [];
-  // Group by actual quarter, not by array index
   const qMap = {};
-  monthly.forEach(m => {
+  monthly.forEach(function (m) {
     const d = new Date(m.date);
-    const qKey = `${d.getFullYear()} Q${Math.floor(d.getMonth() / 3) + 1}`;
+    const qKey = d.getFullYear() + ' Q' + (Math.floor(d.getMonth() / 3) + 1);
     if (!qMap[qKey]) qMap[qKey] = [];
     qMap[qKey].push(m);
   });
-  // Sort quarter keys chronologically
-  const qKeys = Object.keys(qMap).sort((a, b) => {
-    const [aY, aQ] = a.split(' Q').map(Number);
-    const [bY, bQ] = b.split(' Q').map(Number);
-    return aY !== bY ? aY - bY : aQ - bQ;
+  const qKeys = Object.keys(qMap).sort(function (a, b) {
+    var ap = a.split(' Q'), bp = b.split(' Q');
+    var d = Number(ap[0]) - Number(bp[0]);
+    return d !== 0 ? d : Number(ap[1]) - Number(bp[1]);
   });
-  qKeys.forEach(qLabel => {
-    const qMonths = qMap[qLabel];
-    quarterly.push({
+  return qKeys.map(function (qLabel) {
+    var qMonths = qMap[qLabel];
+    return {
       quarter: qLabel,
-      revenue: qMonths.reduce((s, m) => s + m.revenue, 0),
-      fees: qMonths.reduce((s, m) => s + m.fees, 0),
-      earnings: qMonths.reduce((s, m) => s + m.earnings, 0),
-      tokenIncentives: qMonths.reduce((s, m) => s + m.tokenIncentives, 0),
-      costOfRevenue: qMonths.reduce((s, m) => s + m.costOfRevenue, 0),
-      avgTakeRate: qMonths.reduce((s, m) => s + m.takeRate, 0) / qMonths.length,
-      avgTvl: qMonths.reduce((s, m) => s + m.tvl, 0) / qMonths.length,
-      avgFdv: qMonths.reduce((s, m) => s + m.fdv, 0) / qMonths.length,
-      avgDau: Math.round(qMonths.reduce((s, m) => s + m.dau, 0) / qMonths.length),
-    });
+      revenue: qMonths.reduce(function (s, m) { return s + m.revenue; }, 0),
+      fees: qMonths.reduce(function (s, m) { return s + m.fees; }, 0),
+      earnings: qMonths.reduce(function (s, m) { return s + m.earnings; }, 0),
+      tokenIncentives: qMonths.reduce(function (s, m) { return s + m.tokenIncentives; }, 0),
+      costOfRevenue: qMonths.reduce(function (s, m) { return s + m.costOfRevenue; }, 0),
+      avgTakeRate: qMonths.reduce(function (s, m) { return s + m.takeRate; }, 0) / qMonths.length,
+      avgTvl: qMonths.reduce(function (s, m) { return s + m.tvl; }, 0) / qMonths.length,
+      avgFdv: qMonths.reduce(function (s, m) { return s + m.fdv; }, 0) / qMonths.length,
+      avgDau: Math.round(qMonths.reduce(function (s, m) { return s + m.dau; }, 0) / qMonths.length),
+    };
   });
-  return quarterly;
 }
 
 function computeDerivedMetrics(monthly) {
-  const revValues = monthly.map(m => m.revenue).filter(v => v > 0);
-  const revMean = revValues.length > 0 ? revValues.reduce((a, b) => a + b, 0) / revValues.length : 0;
-  const revStd = revValues.length > 0 ? Math.sqrt(revValues.reduce((s, v) => s + Math.pow(v - revMean, 2), 0) / revValues.length) : 0;
+  const revValues = monthly.map(function (m) { return m.revenue; }).filter(function (v) { return v > 0; });
+  const revMean = revValues.length > 0 ? revValues.reduce(function (a, b) { return a + b; }, 0) / revValues.length : 0;
+  const revStd = revValues.length > 0 ? Math.sqrt(revValues.reduce(function (s, v) { return s + Math.pow(v - revMean, 2); }, 0) / revValues.length) : 0;
   const consistency = revMean > 0 ? Math.max(0, 1 - revStd / revMean) : 0;
 
-  let stickySum = 0, stickyCount = 0;
-  for (let i = 1; i < monthly.length; i++) {
-    const mx = Math.max(monthly[i].revenue, monthly[i - 1].revenue);
+  var stickySum = 0, stickyCount = 0;
+  for (var i = 1; i < monthly.length; i++) {
+    var mx = Math.max(monthly[i].revenue, monthly[i - 1].revenue);
     if (mx > 0) {
       stickySum += Math.min(monthly[i].revenue, monthly[i - 1].revenue) / mx;
       stickyCount++;
@@ -267,81 +547,148 @@ function computeDerivedMetrics(monthly) {
   }
   const stickyIndex = stickyCount > 0 ? stickySum / stickyCount : 0;
 
-  return { consistency, stickyIndex };
+  return { consistency: consistency, stickyIndex: stickyIndex };
 }
 
-async function fetchAllLiveData() {
-  const health = await fetch('/health').then(r => r.json()).catch(() => ({ api_configured: false }));
+// ===================================================================
+// LIVE DATA PIPELINE
+// ===================================================================
+async function fetchAllLiveData(onProgress) {
+  // 1. Check if API is configured
+  const health = await fetch('/health').then(function (r) { return r.json(); }).catch(function () { return { api_configured: false }; });
   if (!health.api_configured) return null;
 
-  const results = {};
+  if (onProgress) onProgress(0, 0, 'Discovering protocols...');
 
-  const fetches = PROTOCOLS.map(async (config) => {
-    try {
-      const metrics = await fetchWithSlugRetry(config);
-      // Generate synthetic cohorts
-      const rng = mulberry32(hashCode(config.id + '_cohort'));
-      const cohorts = [];
-      for (let c = 0; c < 12; c++) {
-        const row = [1.0];
-        for (let m = 1; m <= 11; m++) {
-          const base = config.retentionBase * Math.pow(0.75, m - 1);
-          row.push(Math.min(row[m - 1], Math.max(0.01, base * (0.8 + rng() * 0.4))));
+  // 2. Discover all projects from the API
+  var projectList = await fetchProjectList();
+  var projectConfigs = [];
+
+  if (projectList && projectList.length > 0) {
+    console.log('[data] Discovered ' + projectList.length + ' projects from API');
+
+    // 3. Sort by revenue if available, otherwise take all (up to MAX_PROTOCOLS)
+    var hasRevenue = projectList.filter(function (p) { return p.revenue !== null && p.revenue > 0; });
+    var toFetch;
+
+    if (hasRevenue.length > 0) {
+      // Sort by revenue descending, take top MAX_PROTOCOLS
+      hasRevenue.sort(function (a, b) { return (b.revenue || 0) - (a.revenue || 0); });
+      toFetch = hasRevenue.slice(0, MAX_PROTOCOLS);
+      // Also include any seed protocols not already in the list
+      var fetchIds = new Set(toFetch.map(function (p) { return p.id; }));
+      SEED_PROTOCOLS.forEach(function (sp) {
+        if (!fetchIds.has(sp.id)) {
+          toFetch.push({ id: sp.id, name: sp.name, sector: sp.sector, chains: sp.chains, revenue: null });
         }
-        cohorts.push(row);
+      });
+    } else {
+      // No revenue data in listing — take first MAX_PROTOCOLS + all seeds
+      toFetch = projectList.slice(0, MAX_PROTOCOLS);
+      var fetchIds2 = new Set(toFetch.map(function (p) { return p.id; }));
+      SEED_PROTOCOLS.forEach(function (sp) {
+        if (!fetchIds2.has(sp.id)) {
+          toFetch.push({ id: sp.id, name: sp.name, sector: sp.sector, chains: sp.chains, revenue: null });
+        }
+      });
+    }
+
+    // 4. Build configs for each project (seed config if available, else derive)
+    toFetch.forEach(function (proj) {
+      var seed = SEED_MAP[proj.id];
+      if (seed) {
+        projectConfigs.push(seed);
+      } else {
+        projectConfigs.push(deriveProtocolConfig(proj));
       }
-      config.cohorts = cohorts;
-      results[config.id] = transformAPIData(config.id, config, metrics);
+    });
+
+  } else {
+    // Failed to get project list — fall back to seed protocols only
+    console.warn('[data] Could not discover projects, using seed protocols');
+    projectConfigs = SEED_PROTOCOLS.slice();
+  }
+
+  if (onProgress) onProgress(0, projectConfigs.length, 'Loading metrics...');
+
+  // 5. Batch-fetch metrics for all protocols
+  var projectIds = projectConfigs.map(function (c) { return c.id; });
+  var metricsMap = await batchFetchMetrics(projectIds, function (done, total) {
+    if (onProgress) onProgress(done, total, 'Loading metrics... ' + done + '/' + total);
+  });
+
+  // 6. Transform fetched data
+  var results = {};
+  var configMap = {};
+  projectConfigs.forEach(function (c) { configMap[c.id] = c; });
+
+  Object.keys(metricsMap).forEach(function (pid) {
+    var config = configMap[pid];
+    if (!config) return;
+
+    // Generate cohorts
+    config.cohorts = generateCohorts(config.retentionBase || 0.15, pid);
+
+    try {
+      results[pid] = transformAPIData(pid, config, metricsMap[pid]);
     } catch (e) {
-      console.warn(`Failed to fetch ${config.id}:`, e.message);
-      FETCH_STATUS[config.id] = { status: 'failed', error: e.message };
+      console.warn('[data] Transform failed for ' + pid + ':', e.message);
     }
   });
 
-  await Promise.all(fetches);
-
-  if (Object.keys(results).length < PROTOCOLS.length / 2) return null;
-
-  // Fill missing protocols with mock data
-  const mockData = generateAllData();
-  PROTOCOLS.forEach(p => {
-    if (!results[p.id]) {
-      results[p.id] = mockData[p.id];
-      FETCH_STATUS[p.id] = { status: 'mock_fallback', error: 'Using mock data' };
+  // 7. If we got fewer than expected, fill with mock data
+  var mockData = null;
+  projectConfigs.forEach(function (config) {
+    if (!results[config.id]) {
+      if (!mockData) mockData = generateAllData(projectConfigs);
+      if (mockData[config.id]) {
+        results[config.id] = mockData[config.id];
+        FETCH_STATUS[config.id] = { status: 'mock_fallback', error: 'Using mock data' };
+      }
     }
   });
 
+  var resultCount = Object.keys(results).length;
+  console.log('[data] Loaded ' + resultCount + ' protocols (' +
+    Object.keys(metricsMap).length + ' from API, rest mock)');
+
+  if (resultCount === 0) return null;
   return results;
 }
 
 // ===================================================================
 // MOCK DATA GENERATOR (fallback)
 // ===================================================================
-function generateAllData() {
+function generateAllData(configs) {
+  var protocolList = configs || SEED_PROTOCOLS;
   const data = {};
-  PROTOCOLS.forEach(p => {
+
+  protocolList.forEach(function (p) {
     const rng = mulberry32(hashCode(p.id));
     const monthly = [];
+
     for (let m = 0; m < 24; m++) {
       const date = new Date(2024, m, 1);
       const calMonth = date.getMonth();
-      const seasonal = 1 + p.seasonAmp * Math.sin((calMonth - 6) * Math.PI / 6);
-      const trend = Math.pow(1 + p.growthRate, m);
-      const noise = 1 + (rng() - 0.5) * 2 * p.volatility;
-      const revenue = p.baseRevenue * trend * seasonal * noise;
-      const fees = p.takeRate > 0 ? revenue / p.takeRate : revenue * 600;
+      const seasonal = 1 + (p.seasonAmp || 0.15) * Math.sin((calMonth - 6) * Math.PI / 6);
+      const trend = Math.pow(1 + (p.growthRate || 0.01), m);
+      const noise = 1 + (rng() - 0.5) * 2 * (p.volatility || 0.12);
+      const revenue = (p.baseRevenue || 1e6) * trend * seasonal * noise;
+      const tr = p.takeRate || 0.10;
+      const fees = tr > 0 ? revenue / tr : revenue * 600;
       const supplySideFees = fees - revenue;
       const costOfRevenue = revenue * (0.05 + rng() * 0.08);
       const incentiveDecay = Math.max(0.3, 1 - m * 0.02);
-      const tokenIncentives = revenue * p.incentiveRatio * incentiveDecay * (0.8 + rng() * 0.4);
+      const tokenIncentives = revenue * (p.incentiveRatio || 0.20) * incentiveDecay * (0.8 + rng() * 0.4);
       const earnings = revenue - tokenIncentives - costOfRevenue;
-      const tvl = p.tvlBase * trend * (0.9 + rng() * 0.2) * seasonal * 0.9;
-      const fdv = p.fdvBase * trend * (0.85 + rng() * 0.3);
+      const tvl = (p.tvlBase || 1e9) * trend * (0.9 + rng() * 0.2) * seasonal * 0.9;
+      const fdv = (p.fdvBase || 1e9) * trend * (0.85 + rng() * 0.3);
       const circMcap = fdv * (0.4 + rng() * 0.3);
       const price = fdv / (1e9 + rng() * 9e9);
-      const dau = Math.max(0, Math.round(p.dauBase * trend * (0.85 + rng() * 0.3) * seasonal));
+      const dau = Math.max(0, Math.round((p.dauBase || 5000) * trend * (0.85 + rng() * 0.3) * seasonal));
       const chainData = {};
-      for (const [chain, pct] of Object.entries(p.chainDist)) {
+      const cd = p.chainDist || { ethereum: 1.0 };
+      for (const [chain, pct] of Object.entries(cd)) {
         const chainNoise = 0.8 + rng() * 0.4;
         chainData[chain] = {
           revenue: revenue * pct * chainNoise,
@@ -350,7 +697,7 @@ function generateAllData() {
           dau: Math.max(0, Math.round(dau * pct * chainNoise))
         };
       }
-      const chainRevSum = Object.values(chainData).reduce((s, c) => s + c.revenue, 0);
+      const chainRevSum = Object.values(chainData).reduce(function (s, c) { return s + c.revenue; }, 0);
       if (chainRevSum > 0) {
         for (const chain of Object.keys(chainData)) {
           const scale = revenue / chainRevSum;
@@ -361,32 +708,31 @@ function generateAllData() {
       monthly.push({
         date: date.toISOString().slice(0, 10),
         month: date.toISOString().slice(0, 7),
-        calMonth,
-        revenue, fees, supplySideFees, costOfRevenue, tokenIncentives, earnings,
-        tvl, fdv, circMcap, price, dau,
+        calMonth: calMonth,
+        revenue: revenue, fees: fees, supplySideFees: supplySideFees,
+        costOfRevenue: costOfRevenue, tokenIncentives: tokenIncentives, earnings: earnings,
+        tvl: tvl, fdv: fdv, circMcap: circMcap, price: price, dau: dau,
         takeRate: safeDiv(revenue, fees, 0),
         grossMargin: safeDiv(revenue - costOfRevenue, revenue, 0),
         netMargin: safeDiv(earnings, revenue, 0),
         psRatio: safeDiv(fdv, revenue * 12, 0),
         revenueYield: safeDiv(revenue * 12, fdv, 0),
         arpu: safeDiv(revenue, Math.max(dau, 1), 0),
-        chainData
+        chainData: chainData
       });
     }
+
     const quarterly = buildQuarterly(monthly);
-    const cohorts = [];
-    const rng2 = mulberry32(hashCode(p.id + '_cohort'));
-    for (let c = 0; c < 12; c++) {
-      const row = [1.0];
-      for (let m = 1; m <= 11; m++) {
-        const base = p.retentionBase * Math.pow(0.75, m - 1);
-        const noise = 0.8 + rng2() * 0.4;
-        row.push(Math.min(row[m - 1], Math.max(0.01, base * noise)));
-      }
-      cohorts.push(row);
-    }
+    const cohorts = generateCohorts(p.retentionBase || 0.15, p.id);
     const { consistency, stickyIndex } = computeDerivedMetrics(monthly);
-    data[p.id] = { ...p, monthly, quarterly, cohorts, consistency, stickyIndex };
+    data[p.id] = {
+      id: p.id, name: p.name, sector: p.sector,
+      chains: p.chains || ['ethereum'],
+      chainDist: p.chainDist || {},
+      monthly: monthly, quarterly: quarterly, cohorts: cohorts,
+      consistency: consistency, stickyIndex: stickyIndex
+    };
   });
+
   return data;
 }

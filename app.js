@@ -141,48 +141,58 @@ function hideLoadingOverlay() {
 }
 
 // ===================================================================
-// SECTOR COUNT BADGE HELPER
+// DYNAMIC SECTOR DROPDOWN + LEGEND
 // ===================================================================
 
 /**
- * Compute how many protocols match a given sector (considering the
- * current chain filter) and return a display string like "Lending (4)".
+ * Build sector dropdown options and legend dots from loaded data.
  */
-function sectorCountBadge(sectorKey) {
-  if (!STATE.data) return '';
-  var protocols = Object.values(STATE.data);
-  if (sectorKey !== 'all') {
-    protocols = protocols.filter(function (p) { return p.sector === sectorKey; });
-  }
-  if (STATE.chain !== 'all') {
-    protocols = protocols.filter(function (p) { return p.chains && p.chains.includes(STATE.chain); });
-  }
-  return protocols.length;
-}
-
-/**
- * Refresh every sector button label to include its count badge.
- */
-function refreshSectorBadges() {
-  document.querySelectorAll('.sector-btn').forEach(function (btn) {
-    var sector = btn.dataset.sector;
-    var count = sectorCountBadge(sector);
-    var label;
-    if (sector === 'all') {
-      label = 'All';
-    } else if (sector === 'lending') {
-      label = 'Lending';
-    } else if (sector === 'dex') {
-      label = 'DEX';
-    } else if (sector === 'l1') {
-      label = 'L1';
-    } else if (sector === 'liquid-staking') {
-      label = 'Staking';
-    } else {
-      label = sector;
-    }
-    btn.textContent = label + ' (' + count + ')';
+function buildSectorUI() {
+  if (!STATE.data) return;
+  var sectorCounts = {};
+  Object.values(STATE.data).forEach(function (p) {
+    var s = p.sector || 'other';
+    sectorCounts[s] = (sectorCounts[s] || 0) + 1;
   });
+
+  // Sort sectors by protocol count descending
+  var sectors = Object.keys(sectorCounts).sort(function (a, b) {
+    return sectorCounts[b] - sectorCounts[a];
+  });
+
+  // Populate sector dropdown
+  var select = document.getElementById('sector-select');
+  if (select) {
+    // Remove old options (keep "All Sectors")
+    while (select.options.length > 1) select.remove(1);
+    sectors.forEach(function (s) {
+      var opt = document.createElement('option');
+      opt.value = s;
+      var label = (SECTOR_LABELS && SECTOR_LABELS[s]) ? SECTOR_LABELS[s] : s;
+      opt.textContent = label + ' (' + sectorCounts[s] + ')';
+      if (s === STATE.sector) opt.selected = true;
+      select.appendChild(opt);
+    });
+    // Update "All" count
+    var allCount = Object.values(STATE.data).length;
+    select.options[0].textContent = 'All Sectors (' + allCount + ')';
+  }
+
+  // Build color legend (top 6 sectors only to keep it compact)
+  var legendEl = document.getElementById('sector-legend');
+  if (legendEl) {
+    var html = '<label class="filter-label">Legend</label>';
+    var topSectors = sectors.slice(0, 6);
+    topSectors.forEach(function (s) {
+      var color = (SECTOR_COLORS && SECTOR_COLORS[s]) ? SECTOR_COLORS[s] : '#6b7280';
+      var label = (SECTOR_LABELS && SECTOR_LABELS[s]) ? SECTOR_LABELS[s] : s;
+      html += '<span class="sector-dot" style="background:' + color + '"></span> ' + label + ' ';
+    });
+    if (sectors.length > 6) {
+      html += '<span style="color:var(--text-muted);font-size:10px;">+' + (sectors.length - 6) + ' more</span>';
+    }
+    legendEl.innerHTML = html;
+  }
 }
 
 // ===================================================================
@@ -216,10 +226,9 @@ function relativeTimeString(date) {
  * after decodeStateFromURL() restores saved filter state.
  */
 function applyStateToDom() {
-  // Sector buttons
-  document.querySelectorAll('.sector-btn').forEach(function (btn) {
-    btn.classList.toggle('active', btn.dataset.sector === STATE.sector);
-  });
+  // Sector dropdown
+  var sectorSelect = document.getElementById('sector-select');
+  if (sectorSelect) sectorSelect.value = STATE.sector;
 
   // Chain dropdown
   var chainSelect = document.getElementById('chain-select');
@@ -258,7 +267,10 @@ document.addEventListener('DOMContentLoaded', async function () {
   try {
     setLoadingText('Connecting to Token Terminal API...');
 
-    var liveData = await fetchAllLiveData();
+    var liveData = await fetchAllLiveData(function (done, total, msg) {
+      if (msg) setLoadingText(msg);
+      else if (total > 0) setLoadingText('Loading protocols... ' + done + '/' + total);
+    });
 
     if (liveData && Object.keys(liveData).length > 0) {
       STATE.data = liveData;
@@ -365,25 +377,16 @@ document.addEventListener('DOMContentLoaded', async function () {
   });
 
   // ------------------------------------------------------------------
-  // g. Wire up sector toggles
+  // g. Wire up sector dropdown
   // ------------------------------------------------------------------
-  document.querySelectorAll('.sector-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      // Toggle active — only one sector active at a time
-      document.querySelectorAll('.sector-btn').forEach(function (b) {
-        b.classList.remove('active');
-      });
-      btn.classList.add('active');
-
-      STATE.sector = btn.dataset.sector;
-
-      // Refresh all badges with updated counts
-      refreshSectorBadges();
-
+  var sectorSelect = document.getElementById('sector-select');
+  if (sectorSelect) {
+    sectorSelect.addEventListener('change', function (e) {
+      STATE.sector = e.target.value;
       renderActiveTab();
       encodeStateToURL();
     });
-  });
+  }
 
   // ------------------------------------------------------------------
   // h. Wire up chain filter
@@ -393,8 +396,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     chainSelect.addEventListener('change', function (e) {
       STATE.chain = e.target.value;
 
-      // Refresh sector badges (counts may change with chain)
-      refreshSectorBadges();
+      // Rebuild sector dropdown (counts may change with chain filter)
+      buildSectorUI();
 
       renderActiveTab();
       encodeStateToURL();
@@ -417,7 +420,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   // j. Apply initial state from URL (set controls to match STATE)
   // ------------------------------------------------------------------
   applyStateToDom();
-  refreshSectorBadges();
+  buildSectorUI();
 
   // ------------------------------------------------------------------
   // k. Initial render
@@ -465,7 +468,7 @@ window.addEventListener('hashchange', function () {
 
   // Sync DOM controls to the newly decoded state
   applyStateToDom();
-  refreshSectorBadges();
+  buildSectorUI();
 
   // Re-render the (possibly changed) active tab
   switchTab(STATE.activeTab);

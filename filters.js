@@ -84,6 +84,18 @@ function getFilteredQuarterly(protocol) {
   return buildQuarterly(monthly);
 }
 
+// Returns top N protocols by latest-month revenue (for chart readability)
+function getTopFilteredProtocols(n) {
+  var all = getFilteredProtocols();
+  if (!n || all.length <= n) return all;
+  return all.slice().sort(function (a, b) {
+    var aRev = 0, bRev = 0;
+    if (a.monthly && a.monthly.length > 0) aRev = a.monthly[a.monthly.length - 1].revenue;
+    if (b.monthly && b.monthly.length > 0) bRev = b.monthly[b.monthly.length - 1].revenue;
+    return bRev - aRev;
+  }).slice(0, n);
+}
+
 // ===================================================================
 // URL STATE
 // ===================================================================
