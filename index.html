@@ -1,1695 +1,450 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Crypto Protocol Analytics | Token Terminal Intelligence</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-<style>
-/* ===== CSS CUSTOM PROPERTIES ===== */
-:root {
-  --bg-primary: #0a0a0a;
-  --bg-panel: #141414;
-  --bg-panel-alt: #1a1a1a;
-  --bg-panel-hover: #1e1e1e;
-  --border: #2a2a2a;
-  --border-light: #333;
-  --text-primary: #e8e8e8;
-  --text-secondary: #8a8a8a;
-  --text-muted: #555;
-  --accent-blue: #4a9eff;
-  --accent-orange: #fb8b1e;
-  --accent-teal: #4af6c3;
-  --accent-red: #ff5a54;
-  --accent-purple: #a78bfa;
-  --accent-yellow: #fbbf24;
-  --sector-lending: #4a9eff;
-  --sector-dex: #fb8b1e;
-  --sector-l1: #4af6c3;
-  --sector-liquid-staking: #a78bfa;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
-  --radius-sm: 2px;
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 12px;
-  --spacing-lg: 16px;
-  --spacing-xl: 24px;
-}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crypto Protocol Analytics | Token Terminal Intelligence</title>
+  <meta name="description" content="Deep analytical dashboard for DeFi protocol revenue, valuations, retention, and capital flows. Powered by Token Terminal API.">
 
-/* ===== RESET & BASE ===== */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 13px; -webkit-font-smoothing: antialiased; }
-body {
-  font-family: var(--font-sans);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  line-height: 1.5;
-  overflow-x: hidden;
-}
-::selection { background: var(--accent-blue); color: #fff; }
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg-primary); }
-::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+  <!-- Open Graph -->
+  <meta property="og:title" content="Crypto Protocol Analytics | Token Terminal Intelligence">
+  <meta property="og:description" content="Deep analytical dashboard for DeFi protocol revenue, valuations, retention, and capital flows. Powered by Token Terminal API.">
+  <meta property="og:type" content="website">
 
-/* ===== HEADER ===== */
-.site-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--spacing-md) var(--spacing-xl);
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-.site-header h1 {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--text-primary);
-}
-.site-header h1 span { color: var(--accent-blue); }
-.header-meta {
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-}
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Crypto Protocol Analytics | Token Terminal Intelligence">
+  <meta name="twitter:description" content="Deep analytical dashboard for DeFi protocol revenue, valuations, retention, and capital flows. Powered by Token Terminal API.">
 
-/* ===== FILTER BAR ===== */
-.filter-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-sm) var(--spacing-xl);
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
-  flex-wrap: wrap;
-}
-.filter-group {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-}
-.filter-group label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-.filter-group select,
-.filter-group input {
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  outline: none;
-}
-.filter-group select:focus,
-.filter-group input:focus { border-color: var(--accent-blue); }
-.filter-group select { cursor: pointer; min-width: 120px; }
-.sector-toggles {
-  display: flex;
-  gap: 2px;
-}
-.sector-btn {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 3px 10px;
-  border: 1px solid var(--border);
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-  font-family: var(--font-sans);
-}
-.sector-btn:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
-.sector-btn:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
-.sector-btn.active {
-  background: var(--accent-blue);
-  border-color: var(--accent-blue);
-  color: #fff;
-}
-.sector-btn[data-sector="lending"].active { background: var(--sector-lending); border-color: var(--sector-lending); }
-.sector-btn[data-sector="dex"].active { background: var(--sector-dex); border-color: var(--sector-dex); }
-.sector-btn[data-sector="l1"].active { background: var(--sector-l1); border-color: var(--sector-l1); color: #000; }
-.sector-btn[data-sector="liquid-staking"].active { background: var(--sector-liquid-staking); border-color: var(--sector-liquid-staking); }
+  <!-- Inline SVG Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%234a9eff'/><text x='16' y='21' text-anchor='middle' font-family='sans-serif' font-weight='700' font-size='14' fill='white'>TT</text></svg>">
 
-/* ===== TAB NAVIGATION ===== */
-.tab-nav {
-  display: flex;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
-  padding: 0 var(--spacing-xl);
-  overflow-x: auto;
-}
-.tab-btn {
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: var(--spacing-md) var(--spacing-lg);
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s;
-}
-.tab-btn:hover { color: var(--text-primary); }
-.tab-btn.active {
-  color: var(--accent-blue);
-  border-bottom-color: var(--accent-blue);
-}
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-/* ===== MAIN CONTENT ===== */
-main { padding: var(--spacing-lg) var(--spacing-xl); }
-.tab-content { display: none; }
-.tab-content.active { display: block; }
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
 
-/* ===== GRID SYSTEM ===== */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--spacing-md);
-}
-.grid .span-2 { grid-column: span 2; }
-
-/* ===== PANELS ===== */
-.panel {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  padding: var(--spacing-lg);
-  display: flex;
-  flex-direction: column;
-}
-.panel-header {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-secondary);
-  margin-bottom: var(--spacing-md);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.panel-header .sub {
-  font-size: 10px;
-  color: var(--text-muted);
-  text-transform: none;
-  letter-spacing: normal;
-  font-weight: 400;
-}
-
-/* ===== KPI CARDS ===== */
-.kpi-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--spacing-md);
-}
-.kpi-card {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  padding: var(--spacing-lg);
-}
-.kpi-card .kpi-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-secondary);
-  margin-bottom: var(--spacing-xs);
-}
-.kpi-card .kpi-value {
-  font-family: var(--font-mono);
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.2;
-}
-.kpi-card .kpi-change {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  margin-top: 2px;
-}
-.kpi-change.positive { color: var(--accent-teal); }
-.kpi-change.negative { color: var(--accent-red); }
-
-/* ===== TABLES ===== */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-.data-table th {
-  text-align: left;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  padding: var(--spacing-sm) var(--spacing-sm);
-  border-bottom: 1px solid var(--border-light);
-  font-weight: 600;
-  white-space: nowrap;
-  position: sticky;
-  top: 0;
-  background: var(--bg-panel);
-  cursor: pointer;
-}
-.data-table th:hover { color: var(--text-secondary); }
-.data-table td {
-  padding: 6px var(--spacing-sm);
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-.data-table tr:hover td { background: var(--bg-panel-hover); }
-.data-table .num {
-  text-align: right;
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-.data-table .protocol-name {
-  font-weight: 500;
-}
-.data-table .sector-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 6px;
-  vertical-align: middle;
-}
-.table-wrap {
-  overflow-x: auto;
-  overflow-y: auto;
-  max-height: 400px;
-  flex: 1;
-}
-
-/* ===== HEATMAP TABLE ===== */
-.heatmap-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 11px;
-  font-family: var(--font-mono);
-}
-.heatmap-table th {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  padding: 4px 6px;
-  font-weight: 500;
-  text-align: center;
-  border-bottom: 1px solid var(--border);
-  font-family: var(--font-sans);
-}
-.heatmap-table th:first-child { text-align: left; }
-.heatmap-table td {
-  text-align: center;
-  padding: 5px 6px;
-  border-bottom: 1px solid rgba(42,42,42,0.5);
-  font-size: 11px;
-}
-.heatmap-table td:first-child {
-  text-align: left;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-/* ===== CHART CONTAINERS ===== */
-.chart-container {
-  width: 100%;
-  min-height: 300px;
-}
-.chart-container-sm { min-height: 250px; }
-.chart-container-lg { min-height: 380px; }
-
-/* ===== FOOTNOTE ===== */
-.footnote {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-top: var(--spacing-sm);
-  font-style: italic;
-}
-
-/* ===== RESPONSIVE ===== */
-@media (max-width: 1200px) {
-  .grid { grid-template-columns: 1fr; }
-  .grid .span-2 { grid-column: span 1; }
-  .kpi-row { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 768px) {
-  .kpi-row { grid-template-columns: 1fr; }
-  .filter-bar { padding: var(--spacing-sm) var(--spacing-md); }
-  main { padding: var(--spacing-md); }
-}
-
-/* ===== LOADING ===== */
-.loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 200px;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-</style>
+  <!-- Plotly (basic bundle — ~2.5 MB smaller than full) -->
+  <script src="https://cdn.plot.ly/plotly-basic-2.35.2.min.js"></script>
 </head>
 <body>
 
-<!-- ===== HEADER ===== -->
-<header class="site-header">
-  <h1><span>TT</span> Protocol Analytics</h1>
-  <div class="header-meta">Data via Token Terminal API &middot; Updated Q4 2025</div>
-</header>
-
-<!-- ===== FILTER BAR ===== -->
-<div class="filter-bar">
-  <div class="filter-group">
-    <label>Sector</label>
-    <div class="sector-toggles">
-      <button class="sector-btn active" data-sector="all">All</button>
-      <button class="sector-btn" data-sector="lending">Lending</button>
-      <button class="sector-btn" data-sector="dex">DEX</button>
-      <button class="sector-btn" data-sector="l1">L1</button>
-      <button class="sector-btn" data-sector="liquid-staking">Staking</button>
-    </div>
+  <!-- ============================================================
+       Loading Overlay
+       ============================================================ -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loading-text">Loading data...</div>
   </div>
-  <div class="filter-group">
-    <label>Chain</label>
-    <select id="chain-filter">
-      <option value="all">All Chains</option>
-      <option value="ethereum">Ethereum</option>
-      <option value="arbitrum">Arbitrum</option>
-      <option value="base">Base</option>
-      <option value="optimism">Optimism</option>
-      <option value="polygon">Polygon</option>
-      <option value="solana">Solana</option>
-      <option value="bsc">BNB Chain</option>
-      <option value="avalanche">Avalanche</option>
-    </select>
-  </div>
-  <div class="filter-group">
-    <label>Period</label>
-    <select id="period-filter">
-      <option value="24">24 Months</option>
-      <option value="12">12 Months</option>
-      <option value="6">6 Months</option>
-    </select>
-  </div>
-</div>
 
-<!-- ===== TAB NAVIGATION ===== -->
-<nav class="tab-nav">
-  <button class="tab-btn active" data-tab="revenue">Revenue</button>
-  <button class="tab-btn" data-tab="valuation">Revenue vs Valuation</button>
-  <button class="tab-btn" data-tab="retention">Retention &amp; Seasonality</button>
-  <button class="tab-btn" data-tab="ltv">LTV &amp; Incentives</button>
-  <button class="tab-btn" data-tab="margins">Margins &amp; Valuation</button>
-</nav>
+  <!-- ============================================================
+       Header
+       ============================================================ -->
+  <header class="site-header">
+    <h1><span>TT</span> Protocol Analytics</h1>
+    <div class="header-meta" id="header-meta">Initializing...</div>
+  </header>
 
-<!-- ===== MAIN CONTENT ===== -->
-<main>
+  <!-- ============================================================
+       Filter Bar
+       ============================================================ -->
+  <nav class="filter-bar" aria-label="Dashboard filters">
 
-  <!-- TAB 1: Revenue -->
-  <section id="tab-revenue" class="tab-content active">
-    <div id="revenue-kpis" class="kpi-row" style="margin-bottom:var(--spacing-md)"></div>
-    <div class="grid">
-      <div class="panel">
-        <div class="panel-header">Quarterly Revenue by Protocol <span class="sub">Stacked, USD</span></div>
-        <div id="chart-quarterly-revenue" class="chart-container"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-header">Take Rate Heatmap <span class="sub">Revenue / Fees %</span></div>
-        <div class="table-wrap" id="heatmap-takerate"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-header">Revenue Consistency Score <span class="sub">1 = perfectly stable</span></div>
-        <div id="chart-consistency" class="chart-container-sm"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-header">Revenue Decomposition <span class="sub">Selected protocol</span></div>
-        <div id="chart-revenue-decomp" class="chart-container-sm"></div>
-      </div>
-      <div class="panel span-2">
-        <div class="panel-header">Monthly Revenue Time Series <span class="sub">All protocols, USD</span></div>
-        <div id="chart-revenue-ts" class="chart-container-lg"></div>
-      </div>
+    <!-- Sector toggles -->
+    <div class="filter-group">
+      <label class="filter-label" style="margin-right:0.5rem">Sector</label>
+      <button class="sector-btn active" data-sector="all"             aria-label="Show all sectors">All</button>
+      <button class="sector-btn"        data-sector="lending"        aria-label="Toggle Lending sector">Lending</button>
+      <button class="sector-btn"        data-sector="dex"            aria-label="Toggle DEX sector">DEX</button>
+      <button class="sector-btn"        data-sector="l1"             aria-label="Toggle L1 sector">L1</button>
+      <button class="sector-btn"        data-sector="liquid-staking" aria-label="Toggle Liquid Staking sector">Staking</button>
     </div>
-  </section>
 
-  <!-- TAB 2: Revenue vs Valuation -->
-  <section id="tab-valuation" class="tab-content">
-    <div id="valuation-kpis" class="kpi-row" style="margin-bottom:var(--spacing-md)"></div>
-    <div class="grid">
-      <div class="panel span-2">
-        <div class="panel-header">Revenue vs Fully Diluted Valuation <span class="sub">Scatter — size = TVL, color = sector</span></div>
-        <div id="chart-rev-fdv-scatter" class="chart-container-lg"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-header">P/S Ratio Comparison <span class="sub">Current, fully diluted</span></div>
-        <div id="chart-ps-bar" class="chart-container"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-header">Revenue Yield Table <span class="sub">Annualized revenue / FDV</span></div>
-        <div class="table-wrap" id="table-rev-yield"></div>
-      </div>
-      <div class="panel span-2">
-        <div class="panel-header">P/S Ratio Time Series <span class="sub">Monthly</span></div>
-        <div id="chart-ps-ts" class="chart-container"></div>
-      </div>
+    <!-- Chain dropdown -->
+    <div class="filter-group">
+      <label class="filter-label" for="chain-select">Chain</label>
+      <select id="chain-select" aria-label="Filter by blockchain">
+        <option value="all">All Chains</option>
+      </select>
     </div>
-  </section>
 
-  <!-- TAB 3: Retention & Seasonality -->
-  <section id="tab-retention" class="tab-content">
-    <div id="retention-kpis" class="kpi-row" style="margin-bottom:var(--spacing-md)"></div>
-    <div class="grid">
-      <div class="panel span-2">
-        <div class="panel-header">Cohort Retention Heatmap <span class="sub">% of M0 users retained</span></div>
-        <div class="table-wrap" id="heatmap-retention"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-header">Sticky Revenue Index <span class="sub">min(t,t-1)/max(t,t-1) avg</span></div>
-        <div id="chart-sticky-revenue" class="chart-container-sm"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-header">Monthly Seasonality Pattern <span class="sub">Avg revenue by calendar month</span></div>
-        <div id="chart-seasonality" class="chart-container-sm"></div>
-      </div>
-      <div class="panel span-2">
-        <div class="panel-header">DAU vs Revenue <span class="sub">Dual axis — active users (left) vs revenue (right)</span></div>
-        <div id="chart-dau-revenue" class="chart-container"></div>
-      </div>
-      <div class="panel span-2">
-        <div class="panel-header">ARPU Time Series <span class="sub">Monthly revenue / DAU</span></div>
-        <div id="chart-arpu-ts" class="chart-container"></div>
-      </div>
+    <!-- Period dropdown -->
+    <div class="filter-group">
+      <label class="filter-label" for="period-select">Period</label>
+      <select id="period-select" aria-label="Select time period">
+        <option value="3">3 Months</option>
+        <option value="6">6 Months</option>
+        <option value="12">1 Year</option>
+        <option value="24" selected>2 Years</option>
+      </select>
     </div>
-  </section>
 
-  <!-- TAB 4: LTV & Incentives -->
-  <section id="tab-ltv" class="tab-content">
-    <div id="ltv-kpis" class="kpi-row" style="margin-bottom:var(--spacing-md)"></div>
-    <div class="grid">
-      <div class="panel span-2">
-        <div class="panel-header">Cumulative Token Incentive Spend <span class="sub">Running total, USD</span></div>
-        <div id="chart-cumulative-incentives" class="chart-container-lg"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-header">LTV vs CAC Scatter <span class="sub">Estimated &dagger;</span></div>
-        <div id="chart-ltv-cac" class="chart-container"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-header">Incentive Efficiency Table <span class="sub">Incentives / Revenue ratio</span></div>
-        <div class="table-wrap" id="table-incentive-efficiency"></div>
-      </div>
-      <div class="panel span-2">
-        <div class="panel-header">Revenue vs Token Incentives <span class="sub">Monthly comparison</span></div>
-        <div id="chart-rev-vs-incentives" class="chart-container"></div>
-      </div>
+    <!-- Color legend -->
+    <div class="filter-group">
+      <label class="filter-label">Legend</label>
+      <span class="sector-dot" style="background:#4a9eff"></span> Lending
+      <span class="sector-dot" style="background:#fb8b1e"></span> DEX
+      <span class="sector-dot" style="background:#4af6c3"></span> L1
+      <span class="sector-dot" style="background:#a78bfa"></span> Staking
     </div>
-    <p class="footnote">&dagger; LTV estimated as (annualized ARPU) &times; avg retention months. CAC estimated as monthly incentives / estimated new users.</p>
-  </section>
+  </nav>
 
-  <!-- TAB 5: Margins & Valuation -->
-  <section id="tab-margins" class="tab-content">
-    <div id="margins-kpis" class="kpi-row" style="margin-bottom:var(--spacing-md)"></div>
-    <div class="grid">
-      <div class="panel">
-        <div class="panel-header">Gross Margin Comparison <span class="sub">(Revenue - Cost of Rev) / Revenue</span></div>
-        <div id="chart-gross-margin" class="chart-container"></div>
+  <!-- ============================================================
+       Tab Navigation
+       ============================================================ -->
+  <nav class="tab-nav" role="tablist" aria-label="Dashboard sections">
+    <button class="tab-btn active" data-tab="revenue"      role="tab" aria-label="Revenue tab"                   aria-selected="true">Revenue</button>
+    <button class="tab-btn"        data-tab="valuation"     role="tab" aria-label="Revenue vs Valuation tab"      aria-selected="false">Revenue vs Valuation</button>
+    <button class="tab-btn"        data-tab="retention"     role="tab" aria-label="Retention and Seasonality tab" aria-selected="false">Retention &amp; Seasonality</button>
+    <button class="tab-btn"        data-tab="ltv"           role="tab" aria-label="LTV and Incentives tab"        aria-selected="false">LTV &amp; Incentives</button>
+    <button class="tab-btn"        data-tab="margins"       role="tab" aria-label="Margins and Valuation tab"     aria-selected="false">Margins &amp; Valuation</button>
+  </nav>
+
+  <!-- ============================================================
+       Main Content — Tab Panels
+       ============================================================ -->
+  <main class="dashboard">
+
+    <!-- ======================== Revenue ======================== -->
+    <section id="tab-revenue" class="tab-content active" role="tabpanel" aria-label="Revenue analysis">
+
+      <div class="kpi-row">
+        <div class="kpi-card" id="kpi-total-revenue">
+          <div class="kpi-label">Total Revenue</div>
+          <div class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card" id="kpi-revenue-growth">
+          <div class="kpi-label">Avg Revenue Growth</div>
+          <div class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card" id="kpi-median-take-rate">
+          <div class="kpi-label">Median Take Rate</div>
+          <div class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card" id="kpi-top-protocol">
+          <div class="kpi-label">Top Protocol</div>
+          <div class="kpi-value">—</div>
+        </div>
       </div>
-      <div class="panel">
-        <div class="panel-header">Net Margin Comparison <span class="sub">Earnings / Revenue</span></div>
-        <div id="chart-net-margin" class="chart-container"></div>
+
+      <div class="chart-grid">
+
+        <!-- Row 1: Quarterly Revenue — full width -->
+        <div class="chart-panel span-2">
+          <div class="panel-header">
+            <h3>Quarterly Revenue by Protocol</h3>
+          </div>
+          <div id="chart-quarterly-revenue" class="chart-container" role="img" aria-label="Quarterly revenue bar chart"></div>
+        </div>
+
+        <!-- Row 2: Take Rate Heatmap — full width -->
+        <div class="chart-panel span-2">
+          <div class="panel-header">
+            <h3>Take Rate Heatmap</h3>
+          </div>
+          <div id="chart-take-rate-heatmap" class="chart-container" role="img" aria-label="Take rate heatmap across protocols and months"></div>
+        </div>
+
+        <!-- Row 3: Consistency + Decomposition -->
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>Revenue Consistency Score</h3>
+          </div>
+          <div id="chart-revenue-consistency" class="chart-container" role="img" aria-label="Revenue consistency score ranking"></div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>Revenue Decomposition</h3>
+            <div class="panel-controls">
+              <select id="decomp-protocol-select" aria-label="Select protocol for revenue decomposition"></select>
+            </div>
+          </div>
+          <div id="chart-revenue-decomposition" class="chart-container" role="img" aria-label="Revenue decomposition breakdown"></div>
+        </div>
+
+        <!-- Row 4: Monthly Revenue Time Series — full width -->
+        <div class="chart-panel span-2">
+          <div class="panel-header">
+            <h3>Monthly Revenue Time Series</h3>
+          </div>
+          <div id="chart-monthly-revenue" class="chart-container" role="img" aria-label="Monthly revenue time series line chart"></div>
+        </div>
+
       </div>
-      <div class="panel span-2">
-        <div class="panel-header">Margin Time Series <span class="sub">Gross & net margins over time</span></div>
-        <div id="chart-margin-ts" class="chart-container"></div>
+    </section>
+
+    <!-- ================== Revenue vs Valuation ================== -->
+    <section id="tab-valuation" class="tab-content" role="tabpanel" aria-label="Revenue versus valuation analysis">
+
+      <div class="kpi-row">
+        <div class="kpi-card" id="kpi-avg-ps">
+          <div class="kpi-label">Avg P/S Ratio</div>
+          <div class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card" id="kpi-median-ps">
+          <div class="kpi-label">Median P/S</div>
+          <div class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card" id="kpi-most-overvalued">
+          <div class="kpi-label">Most Overvalued</div>
+          <div class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card" id="kpi-most-undervalued">
+          <div class="kpi-label">Most Undervalued</div>
+          <div class="kpi-value">—</div>
+        </div>
       </div>
-      <div class="panel span-2">
-        <div class="panel-header">P/S vs Net Margin <span class="sub">Scatter — are higher margins rewarded?</span></div>
-        <div id="chart-ps-margin-scatter" class="chart-container"></div>
+
+      <div class="chart-grid">
+
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>P/S vs Revenue Scatter</h3>
+          </div>
+          <div id="chart-ps-scatter" class="chart-container" role="img" aria-label="Price to sales versus revenue scatter plot"></div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>P/S Ratio Ranking</h3>
+          </div>
+          <div id="chart-ps-ranking" class="chart-container" role="img" aria-label="P/S ratio ranking bar chart"></div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>P/S Ratio Trends</h3>
+          </div>
+          <div id="chart-ps-trends" class="chart-container" role="img" aria-label="P/S ratio trends over time"></div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>Valuation Summary</h3>
+          </div>
+          <div class="table-wrapper">
+            <table id="table-valuation" role="table" aria-label="Valuation metrics summary table">
+              <thead>
+                <tr>
+                  <th>Protocol</th>
+                  <th>Market Cap</th>
+                  <th>Revenue (Ann.)</th>
+                  <th>P/S Ratio</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
-      <div class="panel span-2">
-        <div class="panel-header">Financial Summary <span class="sub">Full income statement view, latest quarter</span></div>
-        <div class="table-wrap" id="table-financial-summary"></div>
+    </section>
+
+    <!-- ================ Retention & Seasonality ================ -->
+    <section id="tab-retention" class="tab-content" role="tabpanel" aria-label="Retention and seasonality analysis">
+
+      <div class="kpi-row">
+        <div class="kpi-card" id="kpi-avg-retention">
+          <div class="kpi-label">Avg Retention</div>
+          <div class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card" id="kpi-best-retention">
+          <div class="kpi-label">Best Retention</div>
+          <div class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card" id="kpi-worst-month">
+          <div class="kpi-label">Worst Month</div>
+          <div class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card" id="kpi-best-month">
+          <div class="kpi-label">Best Month</div>
+          <div class="kpi-value">—</div>
+        </div>
       </div>
-    </div>
-  </section>
 
-</main>
+      <div class="chart-grid">
+
+        <div class="chart-panel span-2">
+          <div class="panel-header">
+            <h3>Retention Heatmap</h3>
+          </div>
+          <div id="chart-retention-heatmap" class="chart-container" role="img" aria-label="User retention heatmap by protocol"></div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>Retention Trends</h3>
+          </div>
+          <div id="chart-retention-trends" class="chart-container" role="img" aria-label="Retention rate trends over time"></div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>Seasonality Patterns</h3>
+          </div>
+          <div id="chart-seasonality" class="chart-container" role="img" aria-label="Monthly seasonality pattern chart"></div>
+        </div>
+
+        <div class="chart-panel span-2">
+          <div class="panel-header">
+            <h3>Cohort Analysis</h3>
+          </div>
+          <div id="chart-cohort" class="chart-container" role="img" aria-label="User cohort retention analysis"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =================== LTV & Incentives =================== -->
+    <section id="tab-ltv" class="tab-content" role="tabpanel" aria-label="Lifetime value and incentives analysis">
+
+      <div class="kpi-row">
+        <div class="kpi-card" id="kpi-avg-ltv-cac">
+          <div class="kpi-label">Avg LTV / CAC</div>
+          <div class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card" id="kpi-best-ltv-cac">
+          <div class="kpi-label">Best LTV / CAC</div>
+          <div class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card" id="kpi-avg-arpu">
+          <div class="kpi-label">Avg ARPU</div>
+          <div class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card" id="kpi-total-incentives">
+          <div class="kpi-label">Total Incentives</div>
+          <div class="kpi-value">—</div>
+        </div>
+      </div>
+
+      <div class="chart-grid">
+
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>LTV / CAC Ratio</h3>
+          </div>
+          <div id="chart-ltv-cac" class="chart-container" role="img" aria-label="LTV to CAC ratio comparison chart"></div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>ARPU by Protocol</h3>
+          </div>
+          <div id="chart-arpu" class="chart-container" role="img" aria-label="Average revenue per user by protocol"></div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>Token Incentives Over Time</h3>
+          </div>
+          <div id="chart-incentives" class="chart-container" role="img" aria-label="Token incentives spending over time"></div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>LTV &amp; Incentives Summary</h3>
+          </div>
+          <div class="table-wrapper">
+            <table id="table-ltv" role="table" aria-label="LTV and incentives summary table">
+              <thead>
+                <tr>
+                  <th>Protocol</th>
+                  <th>Est. LTV</th>
+                  <th>Est. CAC</th>
+                  <th>LTV / CAC</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <p class="footnote">&dagger; LTV estimated as (monthly ARPU) &times; avg retention months. CAC estimated as trailing 3-month avg incentives / estimated new users.</p>
+    </section>
+
+    <!-- ================= Margins & Valuation ================= -->
+    <section id="tab-margins" class="tab-content" role="tabpanel" aria-label="Margins and valuation analysis">
+
+      <div class="kpi-row">
+        <div class="kpi-card" id="kpi-avg-margin">
+          <div class="kpi-label">Avg Margin</div>
+          <div class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card" id="kpi-highest-margin">
+          <div class="kpi-label">Highest Margin</div>
+          <div class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card" id="kpi-avg-ps-margin">
+          <div class="kpi-label">Avg P/S</div>
+          <div class="kpi-value">—</div>
+        </div>
+        <div class="kpi-card" id="kpi-total-tvl">
+          <div class="kpi-label">Total TVL</div>
+          <div class="kpi-value">—</div>
+        </div>
+      </div>
+
+      <div class="chart-grid">
+
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>Margin Comparison</h3>
+          </div>
+          <div id="chart-margins" class="chart-container" role="img" aria-label="Protocol margin comparison chart"></div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>Margin Trends</h3>
+          </div>
+          <div id="chart-margin-trends" class="chart-container" role="img" aria-label="Protocol margin trends over time"></div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>TVL Composition</h3>
+          </div>
+          <div id="chart-tvl-composition" class="chart-container" role="img" aria-label="TVL composition breakdown by protocol"></div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>Margins &amp; Valuation Summary</h3>
+          </div>
+          <div class="table-wrapper">
+            <table id="table-margins" role="table" aria-label="Margins and valuation summary table">
+              <thead>
+                <tr>
+                  <th>Protocol</th>
+                  <th>Revenue</th>
+                  <th>Expenses</th>
+                  <th>Margin</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================================
+       Scripts — loaded in dependency order
+       ============================================================ -->
+  <script src="utils.js"></script>
+  <script src="data.js"></script>
+  <script src="filters.js"></script>
+  <script src="charts.js"></script>
+  <script src="app.js"></script>
 
-<script>
-// ===================================================================
-// MOCK DATA CONFIGURATION
-// ===================================================================
-const SECTOR_COLORS = {
-  'lending': '#4a9eff',
-  'dex': '#fb8b1e',
-  'l1': '#4af6c3',
-  'liquid-staking': '#a78bfa'
-};
-const SECTOR_LABELS = {
-  'lending': 'Lending',
-  'dex': 'DEX',
-  'l1': 'L1 Blockchain',
-  'liquid-staking': 'Liquid Staking'
-};
-
-const PROTOCOLS = [
-  { id: 'aave', name: 'Aave', sector: 'lending', chains: ['ethereum','polygon','arbitrum','base','optimism'],
-    baseRevenue: 14e6, growthRate: 0.025, seasonAmp: 0.18, takeRate: 0.15, incentiveRatio: 0.30, volatility: 0.10,
-    tvlBase: 12e9, fdvBase: 5e9, dauBase: 25000, retentionBase: 0.22,
-    chainDist: {ethereum:0.55,polygon:0.10,arbitrum:0.18,base:0.12,optimism:0.05} },
-  { id: 'compound', name: 'Compound', sector: 'lending', chains: ['ethereum','base','arbitrum'],
-    baseRevenue: 3.5e6, growthRate: 0.008, seasonAmp: 0.15, takeRate: 0.12, incentiveRatio: 0.55, volatility: 0.08,
-    tvlBase: 3.2e9, fdvBase: 1.8e9, dauBase: 8000, retentionBase: 0.18,
-    chainDist: {ethereum:0.72,base:0.18,arbitrum:0.10} },
-  { id: 'morpho', name: 'Morpho', sector: 'lending', chains: ['ethereum','base'],
-    baseRevenue: 2.2e6, growthRate: 0.06, seasonAmp: 0.20, takeRate: 0.10, incentiveRatio: 0.70, volatility: 0.15,
-    tvlBase: 1.8e9, fdvBase: 1.2e9, dauBase: 5000, retentionBase: 0.14,
-    chainDist: {ethereum:0.60,base:0.40} },
-  { id: 'venus', name: 'Venus', sector: 'lending', chains: ['bsc'],
-    baseRevenue: 1.8e6, growthRate: 0.01, seasonAmp: 0.12, takeRate: 0.20, incentiveRatio: 0.40, volatility: 0.09,
-    tvlBase: 2.1e9, fdvBase: 0.6e9, dauBase: 12000, retentionBase: 0.16,
-    chainDist: {bsc:1.0} },
-  { id: 'uniswap', name: 'Uniswap', sector: 'dex', chains: ['ethereum','polygon','arbitrum','base','optimism'],
-    baseRevenue: 8e6, growthRate: 0.03, seasonAmp: 0.25, takeRate: 0.04, incentiveRatio: 0.08, volatility: 0.18,
-    tvlBase: 5.5e9, fdvBase: 8e9, dauBase: 85000, retentionBase: 0.10,
-    chainDist: {ethereum:0.45,arbitrum:0.22,base:0.18,polygon:0.08,optimism:0.07} },
-  { id: 'curve', name: 'Curve', sector: 'dex', chains: ['ethereum','polygon','arbitrum'],
-    baseRevenue: 2.8e6, growthRate: -0.005, seasonAmp: 0.15, takeRate: 0.50, incentiveRatio: 1.2, volatility: 0.12,
-    tvlBase: 2.2e9, fdvBase: 0.9e9, dauBase: 6000, retentionBase: 0.15,
-    chainDist: {ethereum:0.65,polygon:0.15,arbitrum:0.20} },
-  { id: 'pancakeswap', name: 'PancakeSwap', sector: 'dex', chains: ['bsc','ethereum','arbitrum'],
-    baseRevenue: 8e6, growthRate: 0.01, seasonAmp: 0.20, takeRate: 0.08, incentiveRatio: 0.35, volatility: 0.14,
-    tvlBase: 2.8e9, fdvBase: 2.2e9, dauBase: 120000, retentionBase: 0.08,
-    chainDist: {bsc:0.68,ethereum:0.18,arbitrum:0.14} },
-  { id: 'raydium', name: 'Raydium', sector: 'dex', chains: ['solana'],
-    baseRevenue: 12e6, growthRate: 0.04, seasonAmp: 0.30, takeRate: 0.12, incentiveRatio: 0.15, volatility: 0.22,
-    tvlBase: 1.5e9, fdvBase: 1.8e9, dauBase: 95000, retentionBase: 0.07,
-    chainDist: {solana:1.0} },
-  { id: 'ethereum', name: 'Ethereum', sector: 'l1', chains: ['ethereum'],
-    baseRevenue: 180e6, growthRate: 0.015, seasonAmp: 0.22, takeRate: 0.80, incentiveRatio: 0.05, volatility: 0.15,
-    tvlBase: 65e9, fdvBase: 350e9, dauBase: 450000, retentionBase: 0.35,
-    chainDist: {ethereum:1.0} },
-  { id: 'solana', name: 'Solana', sector: 'l1', chains: ['solana'],
-    baseRevenue: 85e6, growthRate: 0.04, seasonAmp: 0.28, takeRate: 0.50, incentiveRatio: 0.12, volatility: 0.20,
-    tvlBase: 8e9, fdvBase: 90e9, dauBase: 600000, retentionBase: 0.25,
-    chainDist: {solana:1.0} },
-  { id: 'avalanche', name: 'Avalanche', sector: 'l1', chains: ['avalanche'],
-    baseRevenue: 3e6, growthRate: -0.01, seasonAmp: 0.18, takeRate: 0.65, incentiveRatio: 0.50, volatility: 0.13,
-    tvlBase: 1.2e9, fdvBase: 12e9, dauBase: 35000, retentionBase: 0.20,
-    chainDist: {avalanche:1.0} },
-  { id: 'bnb-chain', name: 'BNB Chain', sector: 'l1', chains: ['bsc'],
-    baseRevenue: 25e6, growthRate: 0.005, seasonAmp: 0.15, takeRate: 0.70, incentiveRatio: 0.08, volatility: 0.10,
-    tvlBase: 5.5e9, fdvBase: 85e9, dauBase: 800000, retentionBase: 0.28,
-    chainDist: {bsc:1.0} },
-  { id: 'lido', name: 'Lido', sector: 'liquid-staking', chains: ['ethereum'],
-    baseRevenue: 35e6, growthRate: 0.01, seasonAmp: 0.08, takeRate: 0.10, incentiveRatio: 0.10, volatility: 0.06,
-    tvlBase: 25e9, fdvBase: 2.5e9, dauBase: 3000, retentionBase: 0.60,
-    chainDist: {ethereum:1.0} },
-  { id: 'rocket-pool', name: 'Rocket Pool', sector: 'liquid-staking', chains: ['ethereum'],
-    baseRevenue: 3e6, growthRate: 0.005, seasonAmp: 0.06, takeRate: 0.14, incentiveRatio: 0.20, volatility: 0.05,
-    tvlBase: 3.5e9, fdvBase: 0.8e9, dauBase: 800, retentionBase: 0.65,
-    chainDist: {ethereum:1.0} },
-  { id: 'jito', name: 'Jito', sector: 'liquid-staking', chains: ['solana'],
-    baseRevenue: 8e6, growthRate: 0.05, seasonAmp: 0.15, takeRate: 0.04, incentiveRatio: 0.25, volatility: 0.12,
-    tvlBase: 2.5e9, fdvBase: 3e9, dauBase: 15000, retentionBase: 0.40,
-    chainDist: {solana:1.0} }
-];
-
-// ===================================================================
-// SEEDED PRNG
-// ===================================================================
-function mulberry32(a) {
-  return function() {
-    a |= 0; a = a + 0x6D2B79F5 | 0;
-    var t = Math.imul(a ^ a >>> 15, 1 | a);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  }
-}
-
-// ===================================================================
-// TOKEN TERMINAL API LAYER
-// ===================================================================
-const API_BASE = '/api/tt';
-
-async function fetchTT(path) {
-  const res = await fetch(API_BASE + path);
-  if (!res.ok) throw new Error(`API ${res.status}`);
-  return res.json();
-}
-
-// Transform Token Terminal API responses into our internal format
-function transformAPIData(projectId, config, metricsData, financialData) {
-  const monthly = [];
-  const byMonth = {};
-
-  // Group metrics by month
-  (metricsData.data || []).forEach(row => {
-    const month = row.timestamp?.slice(0, 7);
-    if (!month) return;
-    if (!byMonth[month]) byMonth[month] = {};
-    // TT returns values as strings
-    if (row.metric_id && row.value !== undefined) {
-      byMonth[month][row.metric_id] = parseFloat(row.value) || 0;
-    }
-    // Or flat fields
-    ['revenue','fees','earnings','token_incentives','cost_of_revenue',
-     'supply_side_fees','tvl','price','fully_diluted_market_cap',
-     'circulating_market_cap','daily_active_users','token_trading_volume'
-    ].forEach(key => {
-      if (row[key] !== undefined) byMonth[month][key] = parseFloat(row[key]) || 0;
-    });
-  });
-
-  const months = Object.keys(byMonth).sort();
-  months.forEach((month, i) => {
-    const d = byMonth[month];
-    const date = new Date(month + '-01');
-    const revenue = d.revenue || 0;
-    const fees = d.fees || revenue;
-    const earnings = d.earnings || 0;
-    const tokenIncentives = d.token_incentives || d['token-incentives'] || 0;
-    const costOfRevenue = d.cost_of_revenue || d['cost-of-revenue'] || 0;
-    const supplySideFees = d.supply_side_fees || d['supply-side-fees'] || (fees - revenue);
-    const tvl = d.tvl || 0;
-    const fdv = d.fully_diluted_market_cap || d['fully-diluted-market-cap'] || 0;
-    const circMcap = d.circulating_market_cap || d['circulating-market-cap'] || 0;
-    const price = d.price || 0;
-    const dau = d.daily_active_users || d['daily-active-users'] || 0;
-
-    monthly.push({
-      date: date.toISOString().slice(0, 10),
-      month,
-      calMonth: date.getMonth(),
-      revenue, fees, supplySideFees, costOfRevenue, tokenIncentives, earnings,
-      tvl, fdv, circMcap, price, dau: Math.round(dau),
-      takeRate: fees > 0 ? revenue / fees : 0,
-      grossMargin: revenue > 0 ? (revenue - costOfRevenue) / revenue : 0,
-      netMargin: revenue > 0 ? earnings / revenue : 0,
-      psRatio: revenue > 0 ? fdv / (revenue * 12) : 0,
-      revenueYield: fdv > 0 ? (revenue * 12) / fdv : 0,
-      arpu: dau > 0 ? revenue / dau : 0,
-      chainData: {} // chain breakdown requires separate API calls
-    });
-  });
-
-  // Quarterly aggregation
-  const quarterly = [];
-  for (let q = 0; q < Math.ceil(monthly.length / 3); q++) {
-    const qMonths = monthly.slice(q * 3, q * 3 + 3);
-    if (qMonths.length === 0) continue;
-    const firstDate = new Date(qMonths[0].date);
-    const qLabel = `${firstDate.getFullYear()} Q${Math.floor(firstDate.getMonth() / 3) + 1}`;
-    quarterly.push({
-      quarter: qLabel,
-      revenue: qMonths.reduce((s, m) => s + m.revenue, 0),
-      fees: qMonths.reduce((s, m) => s + m.fees, 0),
-      earnings: qMonths.reduce((s, m) => s + m.earnings, 0),
-      tokenIncentives: qMonths.reduce((s, m) => s + m.tokenIncentives, 0),
-      costOfRevenue: qMonths.reduce((s, m) => s + m.costOfRevenue, 0),
-      avgTakeRate: qMonths.reduce((s, m) => s + m.takeRate, 0) / qMonths.length,
-      avgTvl: qMonths.reduce((s, m) => s + m.tvl, 0) / qMonths.length,
-      avgFdv: qMonths.reduce((s, m) => s + m.fdv, 0) / qMonths.length,
-      avgDau: Math.round(qMonths.reduce((s, m) => s + m.dau, 0) / qMonths.length),
-    });
-  }
-
-  // Compute consistency & sticky index
-  const revValues = monthly.map(m => m.revenue);
-  const revMean = revValues.reduce((a, b) => a + b, 0) / Math.max(revValues.length, 1);
-  const revStd = Math.sqrt(revValues.reduce((s, v) => s + Math.pow(v - revMean, 2), 0) / Math.max(revValues.length, 1));
-  const consistency = Math.max(0, 1 - revStd / Math.max(revMean, 1));
-  let stickySum = 0;
-  for (let i = 1; i < monthly.length; i++) {
-    const mx = Math.max(monthly[i].revenue, monthly[i - 1].revenue);
-    stickySum += mx > 0 ? Math.min(monthly[i].revenue, monthly[i - 1].revenue) / mx : 0;
-  }
-  const stickyIndex = monthly.length > 1 ? stickySum / (monthly.length - 1) : 0;
-
-  return {
-    ...config,
-    monthly, quarterly,
-    cohorts: config.cohorts || [],
-    consistency, stickyIndex
-  };
-}
-
-async function fetchAllLiveData() {
-  // Step 1: check if API is available
-  const health = await fetch('/health').then(r => r.json()).catch(() => ({ api_configured: false }));
-  if (!health.api_configured) return null;
-
-  // Step 2: fetch projects list
-  const projectsList = await fetchTT('/projects').catch(() => null);
-  if (!projectsList?.data) return null;
-
-  // Step 3: for each of our target protocols, fetch metrics
-  const targetIds = PROTOCOLS.map(p => p.id);
-  const results = {};
-
-  // Use the bulk metrics endpoint for efficiency
-  const metricIds = 'fees,revenue,earnings,token-incentives,cost-of-revenue,supply-side-fees,tvl,price,fully-diluted-market-cap,circulating-market-cap,daily-active-users';
-
-  const fetches = PROTOCOLS.map(async (config) => {
-    try {
-      const metrics = await fetchTT(`/projects/${config.id}/metrics?metric_ids=${metricIds}&interval=2y`);
-      // Generate synthetic cohorts since the cohort API may not be programmatic
-      const rng = mulberry32(hashCode(config.id + '_cohort'));
-      const cohorts = [];
-      for (let c = 0; c < 12; c++) {
-        const row = [1.0];
-        for (let m = 1; m <= 11; m++) {
-          const base = config.retentionBase * Math.pow(0.75, m - 1);
-          row.push(Math.min(row[m - 1], Math.max(0.01, base * (0.8 + rng() * 0.4))));
-        }
-        cohorts.push(row);
-      }
-      config.cohorts = cohorts;
-      results[config.id] = transformAPIData(config.id, config, metrics, null);
-    } catch (e) {
-      console.warn(`Failed to fetch ${config.id}:`, e.message);
-    }
-  });
-
-  await Promise.all(fetches);
-
-  // If we got less than half, fall back to mock
-  if (Object.keys(results).length < PROTOCOLS.length / 2) return null;
-
-  // Fill missing protocols with mock data
-  const mockData = generateAllData();
-  PROTOCOLS.forEach(p => {
-    if (!results[p.id]) results[p.id] = mockData[p.id];
-  });
-
-  return results;
-}
-
-// ===================================================================
-// MOCK DATA GENERATOR (fallback)
-// ===================================================================
-function generateAllData() {
-  const data = {};
-  PROTOCOLS.forEach(p => {
-    const rng = mulberry32(hashCode(p.id));
-    const monthly = [];
-    for (let m = 0; m < 24; m++) {
-      const date = new Date(2024, m, 1);
-      const calMonth = date.getMonth(); // 0-11
-      // Seasonality: peaks in Jan(0), Mar(2), Nov(10), Dec(11); trough Jul-Aug
-      const seasonal = 1 + p.seasonAmp * Math.sin((calMonth - 6) * Math.PI / 6);
-      const trend = Math.pow(1 + p.growthRate, m);
-      const noise = 1 + (rng() - 0.5) * 2 * p.volatility;
-      const revenue = p.baseRevenue * trend * seasonal * noise;
-      const fees = p.takeRate > 0 ? revenue / p.takeRate : revenue * 600; // DEXs: fees >> revenue
-      const supplySideFees = fees - revenue;
-      const costOfRevenue = revenue * (0.05 + rng() * 0.08);
-      const incentiveDecay = Math.max(0.3, 1 - m * 0.02);
-      const tokenIncentives = revenue * p.incentiveRatio * incentiveDecay * (0.8 + rng() * 0.4);
-      const earnings = revenue - tokenIncentives - costOfRevenue;
-      const tvl = p.tvlBase * trend * (0.9 + rng() * 0.2) * seasonal * 0.9;
-      const fdv = p.fdvBase * trend * (0.85 + rng() * 0.3);
-      const circMcap = fdv * (0.4 + rng() * 0.3);
-      const price = fdv / (1e9 + rng() * 9e9); // synthetic price
-      const dau = Math.round(p.dauBase * trend * (0.85 + rng() * 0.3) * seasonal);
-      // Chain-level breakdown
-      const chainData = {};
-      for (const [chain, pct] of Object.entries(p.chainDist)) {
-        const chainNoise = 0.8 + rng() * 0.4;
-        chainData[chain] = {
-          revenue: revenue * pct * chainNoise,
-          fees: fees * pct * chainNoise,
-          tvl: tvl * pct * chainNoise,
-          dau: Math.round(dau * pct * chainNoise)
-        };
-      }
-      // Normalize chain data so it sums to total
-      const chainRevSum = Object.values(chainData).reduce((s,c) => s + c.revenue, 0);
-      for (const chain of Object.keys(chainData)) {
-        const scale = revenue / chainRevSum;
-        chainData[chain].revenue *= scale;
-        chainData[chain].fees *= scale;
-      }
-      monthly.push({
-        date: date.toISOString().slice(0,10),
-        month: date.toISOString().slice(0,7),
-        calMonth,
-        revenue, fees, supplySideFees, costOfRevenue, tokenIncentives, earnings,
-        tvl, fdv, circMcap, price, dau,
-        takeRate: revenue / fees,
-        grossMargin: (revenue - costOfRevenue) / revenue,
-        netMargin: earnings / revenue,
-        psRatio: fdv / (revenue * 12),
-        revenueYield: (revenue * 12) / fdv,
-        arpu: revenue / Math.max(dau, 1),
-        chainData
-      });
-    }
-    // Quarterly aggregation
-    const quarterly = [];
-    for (let q = 0; q < 8; q++) {
-      const qMonths = monthly.slice(q * 3, q * 3 + 3);
-      if (qMonths.length === 0) continue;
-      const qLabel = `${2024 + Math.floor(q*3/12)} Q${Math.floor((q*3%12)/3)+1}`;
-      quarterly.push({
-        quarter: qLabel,
-        revenue: qMonths.reduce((s,m) => s + m.revenue, 0),
-        fees: qMonths.reduce((s,m) => s + m.fees, 0),
-        earnings: qMonths.reduce((s,m) => s + m.earnings, 0),
-        tokenIncentives: qMonths.reduce((s,m) => s + m.tokenIncentives, 0),
-        costOfRevenue: qMonths.reduce((s,m) => s + m.costOfRevenue, 0),
-        avgTakeRate: qMonths.reduce((s,m) => s + m.takeRate, 0) / qMonths.length,
-        avgTvl: qMonths.reduce((s,m) => s + m.tvl, 0) / qMonths.length,
-        avgFdv: qMonths.reduce((s,m) => s + m.fdv, 0) / qMonths.length,
-        avgDau: Math.round(qMonths.reduce((s,m) => s + m.dau, 0) / qMonths.length),
-      });
-    }
-    // Retention cohorts (synthetic)
-    const cohorts = [];
-    const rng2 = mulberry32(hashCode(p.id + '_cohort'));
-    for (let c = 0; c < 12; c++) {
-      const row = [1.0];
-      for (let m = 1; m <= 11; m++) {
-        const base = p.retentionBase * Math.pow(0.75, m - 1);
-        const noise = 0.8 + rng2() * 0.4;
-        row.push(Math.min(row[m-1], Math.max(0.01, base * noise)));
-      }
-      cohorts.push(row);
-    }
-    // Consistency score: 1 - CoV
-    const revValues = monthly.map(m => m.revenue);
-    const revMean = revValues.reduce((a,b)=>a+b,0) / revValues.length;
-    const revStd = Math.sqrt(revValues.reduce((s,v)=>s+Math.pow(v-revMean,2),0)/revValues.length);
-    const consistency = Math.max(0, 1 - revStd / revMean);
-    // Sticky revenue index
-    let stickySum = 0;
-    for (let i = 1; i < monthly.length; i++) {
-      stickySum += Math.min(monthly[i].revenue, monthly[i-1].revenue) / Math.max(monthly[i].revenue, monthly[i-1].revenue);
-    }
-    const stickyIndex = stickySum / (monthly.length - 1);
-
-    data[p.id] = { ...p, monthly, quarterly, cohorts, consistency, stickyIndex };
-  });
-  return data;
-}
-
-function hashCode(s) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = Math.imul(31, h) + s.charCodeAt(i) | 0;
-  return h;
-}
-
-// ===================================================================
-// FORMAT HELPERS
-// ===================================================================
-function fmtUSD(n, compact) {
-  if (n === undefined || n === null || isNaN(n)) return '—';
-  const abs = Math.abs(n);
-  const sign = n < 0 ? '-' : '';
-  if (compact !== false) {
-    if (abs >= 1e12) return sign + '$' + (abs/1e12).toFixed(1) + 'T';
-    if (abs >= 1e9) return sign + '$' + (abs/1e9).toFixed(1) + 'B';
-    if (abs >= 1e6) return sign + '$' + (abs/1e6).toFixed(1) + 'M';
-    if (abs >= 1e3) return sign + '$' + (abs/1e3).toFixed(0) + 'K';
-  }
-  return sign + '$' + abs.toLocaleString('en-US', {maximumFractionDigits:0});
-}
-function fmtPct(n) {
-  if (n === undefined || n === null || isNaN(n)) return '—';
-  return (n * 100).toFixed(1) + '%';
-}
-function fmtNum(n) {
-  if (n === undefined || n === null || isNaN(n)) return '—';
-  if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(1) + 'M';
-  if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1) + 'K';
-  return n.toFixed(1);
-}
-function fmtX(n) { return n === undefined || isNaN(n) ? '—' : n.toFixed(1) + 'x'; }
-function changeClass(n) { return n >= 0 ? 'positive' : 'negative'; }
-function changeStr(n) { return (n >= 0 ? '+' : '') + fmtPct(n); }
-
-// ===================================================================
-// PLOTLY DEFAULTS
-// ===================================================================
-const PLOTLY_LAYOUT = {
-  paper_bgcolor: 'rgba(0,0,0,0)',
-  plot_bgcolor: 'rgba(0,0,0,0)',
-  font: { family: "'Inter', sans-serif", size: 11, color: '#8a8a8a' },
-  margin: { t: 10, r: 20, b: 40, l: 60 },
-  xaxis: { gridcolor: '#1e1e1e', linecolor: '#2a2a2a', zerolinecolor: '#2a2a2a' },
-  yaxis: { gridcolor: '#1e1e1e', linecolor: '#2a2a2a', zerolinecolor: '#2a2a2a' },
-  legend: { font: { size: 10 }, bgcolor: 'rgba(0,0,0,0)', orientation: 'h', y: -0.18 },
-  hoverlabel: { font: { family: "'Inter', sans-serif", size: 11 } },
-  showlegend: true,
-};
-const PLOTLY_CONFIG = { displayModeBar: false, responsive: true };
-
-function layoutWith(overrides) {
-  return JSON.parse(JSON.stringify({...PLOTLY_LAYOUT, ...overrides,
-    xaxis: {...PLOTLY_LAYOUT.xaxis, ...(overrides.xaxis||{})},
-    yaxis: {...PLOTLY_LAYOUT.yaxis, ...(overrides.yaxis||{})},
-    ...(overrides.yaxis2 ? {yaxis2: {...PLOTLY_LAYOUT.yaxis, ...overrides.yaxis2}} : {})
-  }));
-}
-
-// ===================================================================
-// GLOBAL STATE
-// ===================================================================
-const STATE = {
-  sector: 'all',
-  chain: 'all',
-  period: 24,
-  activeTab: 'revenue',
-  data: null
-};
-
-// ===================================================================
-// FILTER LOGIC
-// ===================================================================
-function getFilteredProtocols() {
-  let protocols = Object.values(STATE.data);
-  if (STATE.sector !== 'all') {
-    protocols = protocols.filter(p => p.sector === STATE.sector);
-  }
-  if (STATE.chain !== 'all') {
-    protocols = protocols.filter(p => p.chains.includes(STATE.chain));
-  }
-  return protocols;
-}
-
-function getFilteredMonthly(protocol) {
-  const sliceStart = 24 - STATE.period;
-  let monthly = protocol.monthly.slice(sliceStart);
-  if (STATE.chain !== 'all' && protocol.chainDist[STATE.chain]) {
-    monthly = monthly.map(m => {
-      const cd = m.chainData[STATE.chain];
-      if (!cd) return null;
-      return {...m, revenue: cd.revenue, fees: cd.fees, tvl: cd.tvl, dau: cd.dau,
-        takeRate: cd.revenue / cd.fees,
-        arpu: cd.revenue / Math.max(cd.dau, 1),
-        earnings: cd.revenue * (m.earnings / Math.max(m.revenue, 1)),
-        tokenIncentives: cd.revenue * (m.tokenIncentives / Math.max(m.revenue, 1)),
-        costOfRevenue: cd.revenue * (m.costOfRevenue / Math.max(m.revenue, 1))
-      };
-    }).filter(Boolean);
-  }
-  return monthly;
-}
-
-// ===================================================================
-// TAB 1: REVENUE
-// ===================================================================
-function renderRevenueTab() {
-  const protocols = getFilteredProtocols();
-  // KPIs
-  const latestMonths = protocols.map(p => {
-    const m = getFilteredMonthly(p);
-    return m.length > 0 ? m[m.length-1] : null;
-  }).filter(Boolean);
-  const prevMonths = protocols.map(p => {
-    const m = getFilteredMonthly(p);
-    return m.length > 1 ? m[m.length-2] : null;
-  }).filter(Boolean);
-  const totalRev = latestMonths.reduce((s,m)=>s+m.revenue,0);
-  const prevTotalRev = prevMonths.reduce((s,m)=>s+m.revenue,0);
-  const qoq = prevTotalRev > 0 ? (totalRev - prevTotalRev) / prevTotalRev : 0;
-  const avgTakeRate = latestMonths.reduce((s,m)=>s+m.takeRate,0) / Math.max(latestMonths.length,1);
-  const topProtocol = protocols.reduce((best, p) => {
-    const m = getFilteredMonthly(p);
-    const rev = m.length > 0 ? m[m.length-1].revenue : 0;
-    return rev > (best.rev||0) ? {name: p.name, rev} : best;
-  }, {});
-
-  document.getElementById('revenue-kpis').innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">Total Monthly Revenue</div><div class="kpi-value">${fmtUSD(totalRev)}</div><div class="kpi-change ${changeClass(qoq)}">${changeStr(qoq)} MoM</div></div>
-    <div class="kpi-card"><div class="kpi-label">Protocols Tracked</div><div class="kpi-value" style="font-size:28px">${protocols.length}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Avg Take Rate</div><div class="kpi-value">${fmtPct(avgTakeRate)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Top Revenue</div><div class="kpi-value" style="font-size:16px">${topProtocol.name||'—'}</div><div class="kpi-change positive">${fmtUSD(topProtocol.rev)}/mo</div></div>
-  `;
-
-  // Quarterly revenue stacked bar
-  const quarters = protocols.length > 0 ? protocols[0].quarterly.map(q=>q.quarter) : [];
-  const qTraces = protocols.map(p => ({
-    x: p.quarterly.map(q=>q.quarter),
-    y: p.quarterly.map(q=>q.revenue),
-    name: p.name,
-    type: 'bar',
-    marker: { color: SECTOR_COLORS[p.sector], opacity: 0.85 },
-    hovertemplate: `<b>${p.name}</b><br>%{x}<br>Revenue: %{y:$,.0f}<extra></extra>`
-  }));
-  Plotly.react('chart-quarterly-revenue', qTraces, layoutWith({
-    barmode: 'stack',
-    yaxis: { gridcolor: '#1e1e1e', linecolor: '#2a2a2a', tickformat: '$,.0s', title: '' }
-  }), PLOTLY_CONFIG);
-
-  // Take rate heatmap
-  const heatEl = document.getElementById('heatmap-takerate');
-  let heatHTML = '<table class="heatmap-table"><thead><tr><th>Protocol</th>';
-  const qLabels = protocols.length > 0 ? protocols[0].quarterly.map(q=>q.quarter) : [];
-  qLabels.forEach(q => heatHTML += `<th>${q}</th>`);
-  heatHTML += '</tr></thead><tbody>';
-  protocols.forEach(p => {
-    heatHTML += `<tr><td><span class="sector-dot" style="background:${SECTOR_COLORS[p.sector]}"></span>${p.name}</td>`;
-    p.quarterly.forEach(q => {
-      const rate = q.avgTakeRate;
-      const intensity = Math.min(1, rate * 3);
-      const bg = rate > 0.3 ? `rgba(74,246,195,${intensity*0.3})` :
-                 rate > 0.1 ? `rgba(74,158,255,${intensity*0.4})` :
-                 `rgba(251,139,30,${intensity*0.4})`;
-      heatHTML += `<td style="background:${bg};color:var(--text-primary)">${fmtPct(rate)}</td>`;
-    });
-    heatHTML += '</tr>';
-  });
-  heatHTML += '</tbody></table>';
-  heatEl.innerHTML = heatHTML;
-
-  // Revenue consistency
-  const sorted = [...protocols].sort((a,b) => b.consistency - a.consistency);
-  Plotly.react('chart-consistency', [{
-    y: sorted.map(p=>p.name),
-    x: sorted.map(p=>p.consistency),
-    type: 'bar',
-    orientation: 'h',
-    marker: { color: sorted.map(p => SECTOR_COLORS[p.sector]) },
-    hovertemplate: '<b>%{y}</b><br>Score: %{x:.3f}<extra></extra>'
-  }], layoutWith({
-    margin: { l: 100, t: 5, b: 30, r: 20 },
-    xaxis: { gridcolor: '#1e1e1e', range: [0,1], dtick: 0.25 }
-  }), PLOTLY_CONFIG);
-
-  // Revenue decomposition (first protocol or largest)
-  const decompProtocol = protocols.reduce((b,p) => (p.baseRevenue > (b.baseRevenue||0) ? p : b), protocols[0]);
-  if (decompProtocol) {
-    const dm = getFilteredMonthly(decompProtocol);
-    const months = dm.map(m=>m.month);
-    const decompTraces = [
-      { x: months, y: dm.map(m=>m.fees), name: 'Fees', fill: 'tozeroy', type: 'scatter', mode: 'lines',
-        line: { width: 0 }, fillcolor: 'rgba(74,158,255,0.15)', marker: { color: '#4a9eff' } },
-      { x: months, y: dm.map(m=>m.revenue), name: 'Revenue', fill: 'tozeroy', type: 'scatter', mode: 'lines',
-        line: { width: 1.5, color: '#4a9eff' }, fillcolor: 'rgba(74,158,255,0.3)' },
-      { x: months, y: dm.map(m=>m.earnings), name: 'Earnings', fill: 'tozeroy', type: 'scatter', mode: 'lines',
-        line: { width: 1.5, color: '#4af6c3' }, fillcolor: 'rgba(74,246,195,0.2)' },
-      { x: months, y: dm.map(m=>m.tokenIncentives), name: 'Incentives', type: 'scatter', mode: 'lines',
-        line: { width: 1.5, color: '#ff5a54', dash: 'dot' } }
-    ];
-    Plotly.react('chart-revenue-decomp', decompTraces, layoutWith({
-      margin: { t: 5, b: 40, l: 60, r: 20 },
-      yaxis: { gridcolor: '#1e1e1e', tickformat: '$,.0s' }
-    }), PLOTLY_CONFIG);
-  }
-
-  // Revenue time series
-  const tsTraces = protocols.map(p => {
-    const m = getFilteredMonthly(p);
-    return {
-      x: m.map(d=>d.month), y: m.map(d=>d.revenue),
-      name: p.name, type: 'scatter', mode: 'lines',
-      line: { width: 1.8, color: SECTOR_COLORS[p.sector] },
-      opacity: 0.8,
-      hovertemplate: `<b>${p.name}</b><br>%{x}<br>Revenue: %{y:$,.0f}<extra></extra>`
-    };
-  });
-  Plotly.react('chart-revenue-ts', tsTraces, layoutWith({
-    yaxis: { gridcolor: '#1e1e1e', tickformat: '$,.0s', type: 'log', title: 'Revenue (log)' },
-    legend: { font: { size: 9 }, orientation: 'h', y: -0.22 }
-  }), PLOTLY_CONFIG);
-}
-
-// ===================================================================
-// TAB 2: REVENUE VS VALUATION
-// ===================================================================
-function renderValuationTab() {
-  const protocols = getFilteredProtocols();
-  const latest = protocols.map(p => {
-    const m = getFilteredMonthly(p);
-    return m.length > 0 ? { ...p, ...m[m.length-1] } : null;
-  }).filter(Boolean);
-
-  // KPIs
-  const avgPS = latest.reduce((s,p) => s + p.psRatio, 0) / Math.max(latest.length,1);
-  const medPS = [...latest].sort((a,b)=>a.psRatio-b.psRatio)[Math.floor(latest.length/2)]?.psRatio || 0;
-  const avgYield = latest.reduce((s,p) => s + p.revenueYield, 0) / Math.max(latest.length,1);
-  const cheapest = [...latest].sort((a,b)=>a.psRatio-b.psRatio)[0];
-
-  document.getElementById('valuation-kpis').innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">Avg P/S Ratio</div><div class="kpi-value">${fmtX(avgPS)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Median P/S</div><div class="kpi-value">${fmtX(medPS)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Avg Revenue Yield</div><div class="kpi-value">${fmtPct(avgYield)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Cheapest (P/S)</div><div class="kpi-value" style="font-size:16px">${cheapest?.name||'—'}</div><div class="kpi-change positive">${fmtX(cheapest?.psRatio)}</div></div>
-  `;
-
-  // Scatter: Revenue vs FDV, color by sector, size by TVL
-  const sectors = [...new Set(latest.map(p=>p.sector))];
-  const scatterTraces = sectors.map(sec => {
-    const pts = latest.filter(p=>p.sector===sec);
-    return {
-      x: pts.map(p=>p.revenue*12), y: pts.map(p=>p.fdv),
-      text: pts.map(p=>p.name),
-      name: SECTOR_LABELS[sec],
-      mode: 'markers+text', type: 'scatter',
-      textposition: 'top center',
-      textfont: { size: 9, color: '#aaa' },
-      marker: {
-        color: SECTOR_COLORS[sec],
-        size: pts.map(p => Math.max(8, Math.log10(p.tvl) * 4)),
-        opacity: 0.8,
-        line: { width: 1, color: 'rgba(255,255,255,0.2)' }
-      },
-      hovertemplate: '<b>%{text}</b><br>Ann. Revenue: %{x:$,.0f}<br>FDV: %{y:$,.0f}<extra></extra>'
-    };
-  });
-  Plotly.react('chart-rev-fdv-scatter', scatterTraces, layoutWith({
-    xaxis: { gridcolor: '#1e1e1e', type: 'log', title: 'Annualized Revenue (log)', tickformat: '$,.0s' },
-    yaxis: { gridcolor: '#1e1e1e', type: 'log', title: 'FDV (log)', tickformat: '$,.0s' },
-    legend: { orientation: 'h', y: -0.18 }
-  }), PLOTLY_CONFIG);
-
-  // P/S bar
-  const psSorted = [...latest].sort((a,b) => b.psRatio - a.psRatio);
-  Plotly.react('chart-ps-bar', [{
-    y: psSorted.map(p=>p.name), x: psSorted.map(p=>p.psRatio),
-    type: 'bar', orientation: 'h',
-    marker: { color: psSorted.map(p => SECTOR_COLORS[p.sector]) },
-    hovertemplate: '<b>%{y}</b><br>P/S: %{x:.1f}x<extra></extra>'
-  }], layoutWith({
-    margin: { l: 100, t: 5, b: 30, r: 20 },
-    xaxis: { gridcolor: '#1e1e1e', title: 'P/S Ratio' }
-  }), PLOTLY_CONFIG);
-
-  // Revenue yield table
-  const yieldSorted = [...latest].sort((a,b) => b.revenueYield - a.revenueYield);
-  let yieldHTML = `<table class="data-table"><thead><tr>
-    <th>Protocol</th><th class="num">Ann. Revenue</th><th class="num">FDV</th><th class="num">Rev Yield</th><th class="num">P/S</th>
-  </tr></thead><tbody>`;
-  yieldSorted.forEach(p => {
-    yieldHTML += `<tr>
-      <td><span class="sector-dot" style="background:${SECTOR_COLORS[p.sector]}"></span><span class="protocol-name">${p.name}</span></td>
-      <td class="num">${fmtUSD(p.revenue*12)}</td>
-      <td class="num">${fmtUSD(p.fdv)}</td>
-      <td class="num" style="color:${p.revenueYield > 0.05 ? 'var(--accent-teal)' : 'var(--text-primary)'}">${fmtPct(p.revenueYield)}</td>
-      <td class="num">${fmtX(p.psRatio)}</td>
-    </tr>`;
-  });
-  yieldHTML += '</tbody></table>';
-  document.getElementById('table-rev-yield').innerHTML = yieldHTML;
-
-  // P/S time series
-  const psTraces = protocols.map(p => {
-    const m = getFilteredMonthly(p);
-    return {
-      x: m.map(d=>d.month), y: m.map(d=>d.psRatio),
-      name: p.name, type: 'scatter', mode: 'lines',
-      line: { width: 1.5, color: SECTOR_COLORS[p.sector] },
-      opacity: 0.8,
-      hovertemplate: `<b>${p.name}</b><br>%{x}<br>P/S: %{y:.1f}x<extra></extra>`
-    };
-  });
-  Plotly.react('chart-ps-ts', psTraces, layoutWith({
-    yaxis: { gridcolor: '#1e1e1e', title: 'P/S Ratio', type: 'log' },
-    legend: { font: { size: 9 }, orientation: 'h', y: -0.22 }
-  }), PLOTLY_CONFIG);
-}
-
-// ===================================================================
-// TAB 3: RETENTION & SEASONALITY
-// ===================================================================
-function renderRetentionTab() {
-  const protocols = getFilteredProtocols();
-
-  // KPIs
-  const avgSticky = protocols.reduce((s,p)=>s+p.stickyIndex,0)/Math.max(protocols.length,1);
-  const stickiest = protocols.reduce((b,p)=>p.stickyIndex>(b.stickyIndex||0)?p:b, protocols[0]);
-  const avgRetM6 = protocols.reduce((s,p) => s + (p.cohorts[0]?.[6]||0), 0) / Math.max(protocols.length,1);
-
-  document.getElementById('retention-kpis').innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">Avg Sticky Revenue Index</div><div class="kpi-value">${(avgSticky).toFixed(3)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Most Sticky Protocol</div><div class="kpi-value" style="font-size:16px">${stickiest?.name||'—'}</div><div class="kpi-change positive">${stickiest?.stickyIndex?.toFixed(3)||'—'}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Avg 6-Month Retention</div><div class="kpi-value">${fmtPct(avgRetM6)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Protocols Analyzed</div><div class="kpi-value" style="font-size:28px">${protocols.length}</div></div>
-  `;
-
-  // Cohort retention heatmap
-  const retEl = document.getElementById('heatmap-retention');
-  let retHTML = '<table class="heatmap-table"><thead><tr><th>Protocol</th>';
-  for (let i = 0; i <= 11; i++) retHTML += `<th>M${i}</th>`;
-  retHTML += '</tr></thead><tbody>';
-  protocols.forEach(p => {
-    const cohort = p.cohorts[0] || [];
-    retHTML += `<tr><td><span class="sector-dot" style="background:${SECTOR_COLORS[p.sector]}"></span>${p.name}</td>`;
-    cohort.forEach((val, i) => {
-      const pct = val * 100;
-      const r = Math.round(255 * (1 - val));
-      const g = Math.round(255 * val * 0.9);
-      const bg = i === 0 ? 'rgba(74,158,255,0.2)' :
-        val > 0.3 ? `rgba(74,246,195,${val*0.5})` :
-        val > 0.1 ? `rgba(251,187,36,${val*1.0})` :
-        `rgba(255,90,84,${Math.max(0.1,val*2)})`;
-      retHTML += `<td style="background:${bg};color:var(--text-primary)">${pct.toFixed(1)}%</td>`;
-    });
-    retHTML += '</tr>';
-  });
-  retHTML += '</tbody></table>';
-  retEl.innerHTML = retHTML;
-
-  // Sticky revenue index bar
-  const stickySorted = [...protocols].sort((a,b)=>b.stickyIndex-a.stickyIndex);
-  Plotly.react('chart-sticky-revenue', [{
-    y: stickySorted.map(p=>p.name),
-    x: stickySorted.map(p=>p.stickyIndex),
-    type: 'bar', orientation: 'h',
-    marker: { color: stickySorted.map(p=>SECTOR_COLORS[p.sector]) },
-    hovertemplate: '<b>%{y}</b><br>Sticky Index: %{x:.3f}<extra></extra>'
-  }], layoutWith({
-    margin: { l: 100, t: 5, b: 30, r: 20 },
-    xaxis: { gridcolor: '#1e1e1e', range: [0.5, 1], dtick: 0.1 }
-  }), PLOTLY_CONFIG);
-
-  // Seasonality pattern: avg revenue by calendar month, grouped by sector
-  const sectorMonthly = {};
-  protocols.forEach(p => {
-    if (!sectorMonthly[p.sector]) sectorMonthly[p.sector] = Array(12).fill(0).map(()=>({sum:0,count:0}));
-    const m = getFilteredMonthly(p);
-    m.forEach(d => {
-      sectorMonthly[p.sector][d.calMonth].sum += d.revenue;
-      sectorMonthly[p.sector][d.calMonth].count += 1;
-    });
-  });
-  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const seasonTraces = Object.entries(sectorMonthly).map(([sec, arr]) => ({
-    x: monthNames,
-    y: arr.map(m => m.count > 0 ? m.sum / m.count : 0),
-    name: SECTOR_LABELS[sec], type: 'bar',
-    marker: { color: SECTOR_COLORS[sec], opacity: 0.85 }
-  }));
-  Plotly.react('chart-seasonality', seasonTraces, layoutWith({
-    barmode: 'group',
-    margin: { t: 5, b: 30, l: 60, r: 20 },
-    yaxis: { gridcolor: '#1e1e1e', tickformat: '$,.0s' },
-    legend: { font: { size: 9 }, orientation: 'h', y: -0.22 }
-  }), PLOTLY_CONFIG);
-
-  // DAU vs Revenue dual axis
-  const biggestProtocol = protocols.reduce((b,p) => (p.baseRevenue > (b.baseRevenue||0) ? p : b), protocols[0]);
-  if (biggestProtocol) {
-    const m = getFilteredMonthly(biggestProtocol);
-    Plotly.react('chart-dau-revenue', [
-      { x: m.map(d=>d.month), y: m.map(d=>d.dau), name: 'DAU', type: 'scatter', mode: 'lines',
-        line: { width: 2, color: '#a78bfa' }, yaxis: 'y' },
-      { x: m.map(d=>d.month), y: m.map(d=>d.revenue), name: 'Revenue', type: 'scatter', mode: 'lines',
-        line: { width: 2, color: '#4af6c3' }, yaxis: 'y2' }
-    ], layoutWith({
-      yaxis: { gridcolor: '#1e1e1e', title: 'DAU', tickformat: ',.0f', side: 'left' },
-      yaxis2: { gridcolor: 'rgba(30,30,30,0.3)', title: 'Revenue', tickformat: '$,.0s', overlaying: 'y', side: 'right' },
-      legend: { orientation: 'h', y: -0.18 },
-      margin: { t: 10, r: 70, b: 40, l: 70 },
-      annotations: [{ text: biggestProtocol.name, xref: 'paper', yref: 'paper', x: 0, y: 1.05,
-        showarrow: false, font: { size: 11, color: '#8a8a8a' } }]
-    }), PLOTLY_CONFIG);
-  }
-
-  // ARPU time series
-  const arpuTraces = protocols.map(p => {
-    const m = getFilteredMonthly(p);
-    return {
-      x: m.map(d=>d.month), y: m.map(d=>d.arpu),
-      name: p.name, type: 'scatter', mode: 'lines',
-      line: { width: 1.5, color: SECTOR_COLORS[p.sector] }, opacity: 0.8,
-      hovertemplate: `<b>${p.name}</b><br>%{x}<br>ARPU: $%{y:.2f}<extra></extra>`
-    };
-  });
-  Plotly.react('chart-arpu-ts', arpuTraces, layoutWith({
-    yaxis: { gridcolor: '#1e1e1e', title: 'ARPU ($)', type: 'log', tickformat: '$,.2f' },
-    legend: { font: { size: 9 }, orientation: 'h', y: -0.22 }
-  }), PLOTLY_CONFIG);
-}
-
-// ===================================================================
-// TAB 4: LTV & INCENTIVES
-// ===================================================================
-function renderLTVTab() {
-  const protocols = getFilteredProtocols();
-
-  // KPIs
-  const totalIncentives = protocols.reduce((s,p) => {
-    const m = getFilteredMonthly(p);
-    return s + m.reduce((ss,d)=>ss+d.tokenIncentives,0);
-  }, 0);
-  const avgEfficiency = protocols.reduce((s,p) => {
-    const m = getFilteredMonthly(p);
-    const totalR = m.reduce((ss,d)=>ss+d.revenue,0);
-    const totalI = m.reduce((ss,d)=>ss+d.tokenIncentives,0);
-    return s + (totalI > 0 ? totalR / totalI : 0);
-  }, 0) / Math.max(protocols.length,1);
-
-  document.getElementById('ltv-kpis').innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">Total Incentive Spend</div><div class="kpi-value">${fmtUSD(totalIncentives)}</div><div class="kpi-change negative">Cumulative, all protocols</div></div>
-    <div class="kpi-card"><div class="kpi-label">Avg Rev/Incentive Ratio</div><div class="kpi-value">${avgEfficiency.toFixed(2)}x</div></div>
-    <div class="kpi-card"><div class="kpi-label">Protocols with Positive Earnings</div><div class="kpi-value" style="font-size:28px">${protocols.filter(p => {
-      const m = getFilteredMonthly(p); return m.length > 0 && m[m.length-1].earnings > 0;
-    }).length}/${protocols.length}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Highest LTV/CAC</div><div class="kpi-value" style="font-size:16px">${(() => {
-      const best = protocols.reduce((b,p) => {
-        const m = getFilteredMonthly(p);
-        if (m.length === 0) return b;
-        const last = m[m.length-1];
-        const ltv = last.arpu * 12 * p.retentionBase * 6;
-        const cac = last.tokenIncentives / Math.max(last.dau * 0.1, 1);
-        const ratio = cac > 0 ? ltv / cac : 0;
-        return ratio > (b.ratio||0) ? {name:p.name,ratio} : b;
-      }, {});
-      return best.name || '—';
-    })()}</div></div>
-  `;
-
-  // Cumulative incentive spend
-  const cumTraces = protocols.map(p => {
-    const m = getFilteredMonthly(p);
-    let cum = 0;
-    return {
-      x: m.map(d=>d.month),
-      y: m.map(d => { cum += d.tokenIncentives; return cum; }),
-      name: p.name, type: 'scatter', mode: 'lines',
-      line: { width: 1.8, color: SECTOR_COLORS[p.sector] }, opacity: 0.8,
-      hovertemplate: `<b>${p.name}</b><br>%{x}<br>Cumulative: %{y:$,.0f}<extra></extra>`
-    };
-  });
-  Plotly.react('chart-cumulative-incentives', cumTraces, layoutWith({
-    yaxis: { gridcolor: '#1e1e1e', tickformat: '$,.0s', title: 'Cumulative Incentives' },
-    legend: { font: { size: 9 }, orientation: 'h', y: -0.18 }
-  }), PLOTLY_CONFIG);
-
-  // LTV vs CAC scatter
-  const ltvData = protocols.map(p => {
-    const m = getFilteredMonthly(p);
-    if (m.length === 0) return null;
-    const avgArpu = m.reduce((s,d)=>s+d.arpu,0)/m.length;
-    const avgRetMonths = p.retentionBase * 12;
-    const ltv = avgArpu * avgRetMonths;
-    const avgIncentives = m.reduce((s,d)=>s+d.tokenIncentives,0)/m.length;
-    const avgNewUsers = m.reduce((s,d)=>s+d.dau,0)/m.length * 0.15;
-    const cac = avgIncentives / Math.max(avgNewUsers, 1);
-    return { ...p, ltv, cac, ltvCacRatio: cac > 0 ? ltv/cac : 0 };
-  }).filter(Boolean);
-
-  const sectors = [...new Set(ltvData.map(p=>p.sector))];
-  const ltvTraces = sectors.map(sec => {
-    const pts = ltvData.filter(p=>p.sector===sec);
-    return {
-      x: pts.map(p=>p.cac), y: pts.map(p=>p.ltv),
-      text: pts.map(p=>p.name),
-      name: SECTOR_LABELS[sec], mode: 'markers+text', type: 'scatter',
-      textposition: 'top center', textfont: { size: 9, color: '#aaa' },
-      marker: { color: SECTOR_COLORS[sec], size: 12, opacity: 0.8, line: { width: 1, color: 'rgba(255,255,255,0.2)' } },
-      hovertemplate: '<b>%{text}</b><br>CAC: $%{x:.2f}<br>LTV: $%{y:.2f}<extra></extra>'
-    };
-  });
-  // Add LTV=CAC reference line
-  const maxVal = Math.max(...ltvData.map(p=>Math.max(p.ltv,p.cac)), 1);
-  ltvTraces.push({
-    x: [0, maxVal], y: [0, maxVal], mode: 'lines', type: 'scatter',
-    line: { width: 1, color: '#555', dash: 'dash' }, showlegend: false, hoverinfo: 'skip'
-  });
-  Plotly.react('chart-ltv-cac', ltvTraces, layoutWith({
-    xaxis: { gridcolor: '#1e1e1e', title: 'CAC ($)', type: 'log' },
-    yaxis: { gridcolor: '#1e1e1e', title: 'LTV ($)', type: 'log' },
-    annotations: [{ text: 'LTV = CAC line', x: Math.log10(maxVal*0.6), y: Math.log10(maxVal*0.6),
-      showarrow: false, font: { size: 9, color: '#555' } }]
-  }), PLOTLY_CONFIG);
-
-  // Incentive efficiency table
-  const effData = protocols.map(p => {
-    const m = getFilteredMonthly(p);
-    const totalR = m.reduce((s,d)=>s+d.revenue,0);
-    const totalI = m.reduce((s,d)=>s+d.tokenIncentives,0);
-    const ratio = totalR > 0 ? totalI / totalR : 0;
-    const last3 = m.slice(-3);
-    const prev3 = m.slice(-6,-3);
-    const recentRatio = last3.reduce((s,d)=>s+d.tokenIncentives,0) / Math.max(last3.reduce((s,d)=>s+d.revenue,0),1);
-    const prevRatio = prev3.reduce((s,d)=>s+d.tokenIncentives,0) / Math.max(prev3.reduce((s,d)=>s+d.revenue,0),1);
-    const trend = recentRatio - prevRatio;
-    return { ...p, totalR, totalI, ratio, trend };
-  }).sort((a,b) => a.ratio - b.ratio);
-
-  let effHTML = `<table class="data-table"><thead><tr>
-    <th>Protocol</th><th class="num">Revenue</th><th class="num">Incentives</th><th class="num">Ratio</th><th class="num">Trend</th>
-  </tr></thead><tbody>`;
-  effData.forEach(p => {
-    const trendArrow = p.trend < -0.01 ? '<span style="color:var(--accent-teal)">&#9660;</span>' :
-                       p.trend > 0.01 ? '<span style="color:var(--accent-red)">&#9650;</span>' :
-                       '<span style="color:var(--text-muted)">&#9654;</span>';
-    const ratioColor = p.ratio > 1 ? 'var(--accent-red)' : p.ratio > 0.5 ? 'var(--accent-orange)' : 'var(--accent-teal)';
-    effHTML += `<tr>
-      <td><span class="sector-dot" style="background:${SECTOR_COLORS[p.sector]}"></span><span class="protocol-name">${p.name}</span></td>
-      <td class="num">${fmtUSD(p.totalR)}</td>
-      <td class="num">${fmtUSD(p.totalI)}</td>
-      <td class="num" style="color:${ratioColor}">${fmtPct(p.ratio)}</td>
-      <td class="num">${trendArrow} ${fmtPct(Math.abs(p.trend))}</td>
-    </tr>`;
-  });
-  effHTML += '</tbody></table>';
-  document.getElementById('table-incentive-efficiency').innerHTML = effHTML;
-
-  // Revenue vs Incentives monthly comparison
-  const compProtocols = protocols.slice(0, 6); // top 6
-  const allMonths = compProtocols.length > 0 ? getFilteredMonthly(compProtocols[0]).map(d=>d.month) : [];
-  const revBars = compProtocols.map(p => {
-    const m = getFilteredMonthly(p);
-    return {
-      x: m.map(d=>d.month), y: m.map(d=>d.revenue),
-      name: p.name + ' Rev', type: 'bar',
-      marker: { color: SECTOR_COLORS[p.sector], opacity: 0.7 }
-    };
-  });
-  const incLines = compProtocols.map(p => {
-    const m = getFilteredMonthly(p);
-    return {
-      x: m.map(d=>d.month), y: m.map(d=>-d.tokenIncentives),
-      name: p.name + ' Incentives', type: 'bar',
-      marker: { color: SECTOR_COLORS[p.sector], opacity: 0.35 }
-    };
-  });
-  Plotly.react('chart-rev-vs-incentives', [...revBars, ...incLines], layoutWith({
-    barmode: 'relative',
-    yaxis: { gridcolor: '#1e1e1e', tickformat: '$,.0s', title: 'Revenue (+) / Incentives (-)' },
-    legend: { font: { size: 8 }, orientation: 'h', y: -0.25 },
-    showlegend: false
-  }), PLOTLY_CONFIG);
-}
-
-// ===================================================================
-// TAB 5: MARGINS & VALUATION
-// ===================================================================
-function renderMarginsTab() {
-  const protocols = getFilteredProtocols();
-  const latest = protocols.map(p => {
-    const m = getFilteredMonthly(p);
-    return m.length > 0 ? { ...p, ...m[m.length-1] } : null;
-  }).filter(Boolean);
-
-  // KPIs
-  const avgGM = latest.reduce((s,p)=>s+p.grossMargin,0)/Math.max(latest.length,1);
-  const avgNM = latest.reduce((s,p)=>s+p.netMargin,0)/Math.max(latest.length,1);
-  const bestMargin = [...latest].sort((a,b)=>b.netMargin-a.netMargin)[0];
-  const totalEcosystemRev = latest.reduce((s,p)=>s+p.revenue,0)*12;
-
-  document.getElementById('margins-kpis').innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">Avg Gross Margin</div><div class="kpi-value">${fmtPct(avgGM)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Avg Net Margin</div><div class="kpi-value" style="color:${avgNM>=0?'var(--accent-teal)':'var(--accent-red)'}">${fmtPct(avgNM)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Best Net Margin</div><div class="kpi-value" style="font-size:16px">${bestMargin?.name||'—'}</div><div class="kpi-change positive">${fmtPct(bestMargin?.netMargin)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Ecosystem Ann. Revenue</div><div class="kpi-value">${fmtUSD(totalEcosystemRev)}</div></div>
-  `;
-
-  // Gross margin bar
-  const gmSorted = [...latest].sort((a,b)=>b.grossMargin-a.grossMargin);
-  Plotly.react('chart-gross-margin', [{
-    y: gmSorted.map(p=>p.name), x: gmSorted.map(p=>p.grossMargin*100),
-    type: 'bar', orientation: 'h',
-    marker: { color: gmSorted.map(p=>SECTOR_COLORS[p.sector]) },
-    hovertemplate: '<b>%{y}</b><br>Gross Margin: %{x:.1f}%<extra></extra>'
-  }], layoutWith({
-    margin: { l: 100, t: 5, b: 30, r: 20 },
-    xaxis: { gridcolor: '#1e1e1e', title: 'Gross Margin %', ticksuffix: '%' }
-  }), PLOTLY_CONFIG);
-
-  // Net margin bar
-  const nmSorted = [...latest].sort((a,b)=>b.netMargin-a.netMargin);
-  Plotly.react('chart-net-margin', [{
-    y: nmSorted.map(p=>p.name), x: nmSorted.map(p=>p.netMargin*100),
-    type: 'bar', orientation: 'h',
-    marker: { color: nmSorted.map(p => p.netMargin >= 0 ? SECTOR_COLORS[p.sector] : '#ff5a54') },
-    hovertemplate: '<b>%{y}</b><br>Net Margin: %{x:.1f}%<extra></extra>'
-  }], layoutWith({
-    margin: { l: 100, t: 5, b: 30, r: 20 },
-    xaxis: { gridcolor: '#1e1e1e', title: 'Net Margin %', ticksuffix: '%', zeroline: true, zerolinecolor: '#555', zerolinewidth: 1 }
-  }), PLOTLY_CONFIG);
-
-  // Margin time series (top 5 by revenue)
-  const top5 = [...protocols].sort((a,b)=>b.baseRevenue-a.baseRevenue).slice(0,5);
-  const marginTraces = [];
-  top5.forEach(p => {
-    const m = getFilteredMonthly(p);
-    marginTraces.push({
-      x: m.map(d=>d.month), y: m.map(d=>d.grossMargin*100),
-      name: p.name + ' Gross', type: 'scatter', mode: 'lines',
-      line: { width: 1.8, color: SECTOR_COLORS[p.sector] },
-      hovertemplate: `<b>${p.name}</b><br>%{x}<br>Gross: %{y:.1f}%<extra></extra>`
-    });
-    marginTraces.push({
-      x: m.map(d=>d.month), y: m.map(d=>d.netMargin*100),
-      name: p.name + ' Net', type: 'scatter', mode: 'lines',
-      line: { width: 1.2, color: SECTOR_COLORS[p.sector], dash: 'dot' },
-      hovertemplate: `<b>${p.name}</b><br>%{x}<br>Net: %{y:.1f}%<extra></extra>`
-    });
-  });
-  Plotly.react('chart-margin-ts', marginTraces, layoutWith({
-    yaxis: { gridcolor: '#1e1e1e', title: 'Margin %', ticksuffix: '%', zeroline: true, zerolinecolor: '#555' },
-    legend: { font: { size: 8 }, orientation: 'h', y: -0.25 }
-  }), PLOTLY_CONFIG);
-
-  // P/S vs Net Margin scatter
-  const scatterSectors = [...new Set(latest.map(p=>p.sector))];
-  const psMarginTraces = scatterSectors.map(sec => {
-    const pts = latest.filter(p=>p.sector===sec);
-    return {
-      x: pts.map(p=>p.netMargin*100), y: pts.map(p=>p.psRatio),
-      text: pts.map(p=>p.name),
-      name: SECTOR_LABELS[sec], mode: 'markers+text', type: 'scatter',
-      textposition: 'top center', textfont: { size: 9, color: '#aaa' },
-      marker: { color: SECTOR_COLORS[sec], size: 14, opacity: 0.8, line: { width: 1, color: 'rgba(255,255,255,0.2)' } },
-      hovertemplate: '<b>%{text}</b><br>Net Margin: %{x:.1f}%<br>P/S: %{y:.1f}x<extra></extra>'
-    };
-  });
-  Plotly.react('chart-ps-margin-scatter', psMarginTraces, layoutWith({
-    xaxis: { gridcolor: '#1e1e1e', title: 'Net Margin %', ticksuffix: '%', zeroline: true, zerolinecolor: '#555' },
-    yaxis: { gridcolor: '#1e1e1e', title: 'P/S Ratio', type: 'log' },
-    legend: { orientation: 'h', y: -0.18 }
-  }), PLOTLY_CONFIG);
-
-  // Financial summary table
-  let fsHTML = `<table class="data-table"><thead><tr>
-    <th>Protocol</th><th>Sector</th><th class="num">Fees</th><th class="num">Supply-Side</th>
-    <th class="num">Revenue</th><th class="num">Cost of Rev</th><th class="num">Incentives</th>
-    <th class="num">Earnings</th><th class="num">Gross %</th><th class="num">Net %</th>
-    <th class="num">FDV</th><th class="num">P/S</th>
-  </tr></thead><tbody>`;
-  const fsSorted = [...latest].sort((a,b)=>b.revenue-a.revenue);
-  fsSorted.forEach(p => {
-    const nmColor = p.netMargin >= 0 ? 'var(--accent-teal)' : 'var(--accent-red)';
-    fsHTML += `<tr>
-      <td><span class="sector-dot" style="background:${SECTOR_COLORS[p.sector]}"></span><span class="protocol-name">${p.name}</span></td>
-      <td style="color:var(--text-secondary)">${SECTOR_LABELS[p.sector]}</td>
-      <td class="num">${fmtUSD(p.fees)}</td>
-      <td class="num">${fmtUSD(p.supplySideFees)}</td>
-      <td class="num" style="font-weight:600">${fmtUSD(p.revenue)}</td>
-      <td class="num">${fmtUSD(p.costOfRevenue)}</td>
-      <td class="num" style="color:var(--accent-orange)">${fmtUSD(p.tokenIncentives)}</td>
-      <td class="num" style="color:${nmColor};font-weight:600">${fmtUSD(p.earnings)}</td>
-      <td class="num">${fmtPct(p.grossMargin)}</td>
-      <td class="num" style="color:${nmColor}">${fmtPct(p.netMargin)}</td>
-      <td class="num">${fmtUSD(p.fdv)}</td>
-      <td class="num">${fmtX(p.psRatio)}</td>
-    </tr>`;
-  });
-  fsHTML += '</tbody></table>';
-  document.getElementById('table-financial-summary').innerHTML = fsHTML;
-}
-
-// ===================================================================
-// TAB SWITCHING & EVENT BINDING
-// ===================================================================
-function switchTab(tabId) {
-  STATE.activeTab = tabId;
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
-  document.querySelectorAll('.tab-content').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tabId));
-  renderActiveTab();
-}
-
-function renderActiveTab() {
-  // Purge all plotly charts in inactive tabs to free WebGL contexts
-  document.querySelectorAll('.tab-content:not(.active) [id^="chart-"]').forEach(el => {
-    if (el.data) Plotly.purge(el);
-  });
-  switch (STATE.activeTab) {
-    case 'revenue': renderRevenueTab(); break;
-    case 'valuation': renderValuationTab(); break;
-    case 'retention': renderRetentionTab(); break;
-    case 'ltv': renderLTVTab(); break;
-    case 'margins': renderMarginsTab(); break;
-  }
-}
-
-// ===================================================================
-// INITIALIZATION
-// ===================================================================
-document.addEventListener('DOMContentLoaded', async () => {
-  // Try live API first, fall back to mock data
-  const indicator = document.querySelector('.header-meta');
-  try {
-    indicator.textContent = 'Loading live data from Token Terminal API...';
-    const liveData = await fetchAllLiveData();
-    if (liveData) {
-      STATE.data = liveData;
-      STATE.dataSource = 'live';
-      indicator.textContent = 'Live data via Token Terminal API \u00b7 15-min cache';
-      indicator.style.color = 'var(--accent-teal)';
-    } else {
-      throw new Error('fallback');
-    }
-  } catch {
-    STATE.data = generateAllData();
-    STATE.dataSource = 'mock';
-    indicator.textContent = 'Mock data \u00b7 Set TT_API_KEY env var for live data';
-    indicator.style.color = 'var(--accent-orange)';
-  }
-
-  // Tab buttons
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-  });
-
-  // Sector toggles
-  document.querySelectorAll('.sector-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.sector-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      STATE.sector = btn.dataset.sector;
-      renderActiveTab();
-    });
-  });
-
-  // Chain filter
-  document.getElementById('chain-filter').addEventListener('change', e => {
-    STATE.chain = e.target.value;
-    renderActiveTab();
-  });
-
-  // Period filter
-  document.getElementById('period-filter').addEventListener('change', e => {
-    STATE.period = parseInt(e.target.value);
-    renderActiveTab();
-  });
-
-  // Initial render
-  renderActiveTab();
-});
-</script>
 </body>
 </html>
