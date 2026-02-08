@@ -246,6 +246,25 @@ function applyStateToDom() {
 document.addEventListener('DOMContentLoaded', async function () {
 
   // ------------------------------------------------------------------
+  // 0. Theme: check localStorage, default to dark
+  // ------------------------------------------------------------------
+  var savedTheme = localStorage.getItem('tt-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  var themeBtn = document.getElementById('theme-toggle');
+  if (themeBtn) {
+    themeBtn.textContent = savedTheme === 'dark' ? '\u2600' : '\u263E';
+    themeBtn.addEventListener('click', function () {
+      var current = document.documentElement.getAttribute('data-theme');
+      var next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('tt-theme', next);
+      themeBtn.textContent = next === 'dark' ? '\u2600' : '\u263E';
+      // Re-render active tab to update Plotly chart colors
+      renderActiveTab();
+    });
+  }
+
+  // ------------------------------------------------------------------
   // a. Show loading overlay
   // ------------------------------------------------------------------
   var overlay = ensureLoadingOverlay();

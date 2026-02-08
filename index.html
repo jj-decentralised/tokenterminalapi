@@ -37,6 +37,7 @@
        ============================================================ -->
   <div id="loading-overlay" class="loading-overlay">
     <div class="loading-spinner"></div>
+    <div class="loading-bar"><div class="loading-bar-fill" id="loading-bar-fill"></div></div>
     <div class="loading-text" id="loading-text">Loading data...</div>
   </div>
 
@@ -45,6 +46,7 @@
        ============================================================ -->
   <header class="site-header">
     <h1><span>TT</span> Protocol Analytics</h1>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">&#9728;</button>
     <div class="header-meta" id="header-meta">Initializing...</div>
   </header>
 
@@ -88,11 +90,11 @@
        Tab Navigation
        ============================================================ -->
   <nav class="tab-nav" role="tablist" aria-label="Dashboard sections">
-    <button class="tab-btn active" data-tab="revenue"      role="tab" aria-label="Revenue tab"                   aria-selected="true">Revenue</button>
-    <button class="tab-btn"        data-tab="valuation"     role="tab" aria-label="Revenue vs Valuation tab"      aria-selected="false">Revenue vs Valuation</button>
-    <button class="tab-btn"        data-tab="retention"     role="tab" aria-label="Retention and Seasonality tab" aria-selected="false">Retention &amp; Seasonality</button>
-    <button class="tab-btn"        data-tab="ltv"           role="tab" aria-label="LTV and Incentives tab"        aria-selected="false">LTV &amp; Incentives</button>
-    <button class="tab-btn"        data-tab="margins"       role="tab" aria-label="Margins and Valuation tab"     aria-selected="false">Margins &amp; Valuation</button>
+    <button class="tab-btn active" data-tab="revenue"      role="tab" aria-label="Revenue tab"                   aria-selected="true">Revenue <span class="tab-badge">5</span></button>
+    <button class="tab-btn"        data-tab="valuation"     role="tab" aria-label="Revenue vs Valuation tab"      aria-selected="false">Revenue vs Valuation <span class="tab-badge">4</span></button>
+    <button class="tab-btn"        data-tab="retention"     role="tab" aria-label="Retention and Seasonality tab" aria-selected="false">Retention &amp; Seasonality <span class="tab-badge">4</span></button>
+    <button class="tab-btn"        data-tab="ltv"           role="tab" aria-label="LTV and Incentives tab"        aria-selected="false">LTV &amp; Incentives <span class="tab-badge">4</span></button>
+    <button class="tab-btn"        data-tab="margins"       role="tab" aria-label="Margins and Valuation tab"     aria-selected="false">Margins &amp; Valuation <span class="tab-badge">4</span></button>
   </nav>
 
   <!-- ============================================================
@@ -428,6 +430,17 @@
     </section>
 
   </main>
+
+  <!-- ============================================================
+       Footer
+       ============================================================ -->
+  <footer class="site-footer">
+    <span>Protocol Analytics Dashboard</span>
+    <span class="footer-separator">&middot;</span>
+    <span>Data: <a href="https://tokenterminal.com" target="_blank" rel="noopener">Token Terminal</a></span>
+    <span class="footer-separator">&middot;</span>
+    <span id="footer-protocol-count"></span>
+  </footer>
 
   <!-- ============================================================
        Scripts — loaded in dependency order

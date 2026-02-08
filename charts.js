@@ -42,10 +42,48 @@ var PLOTLY_CONFIG = {
    2.  HELPERS
    ══════════════════════════════════════════════════════════════════════════ */
 
-/** Deep-copy PLOTLY_LAYOUT and merge overrides */
+/** Return Plotly layout overrides based on current light/dark theme */
+function getPlotlyTheme() {
+  var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  return {
+    font: { color: isDark ? '#c8c8c8' : '#333333' },
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    xaxis: {
+      gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)',
+      zerolinecolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.15)'
+    },
+    yaxis: {
+      gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)',
+      zerolinecolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.15)'
+    },
+    hoverlabel: {
+      bgcolor: isDark ? '#1a1a2e' : '#ffffff',
+      bordercolor: isDark ? '#333' : '#ddd',
+      font: { size: 12, color: isDark ? '#e8e8e8' : '#333' }
+    }
+  };
+}
+
+/** Deep-copy PLOTLY_LAYOUT, merge theme overrides, then merge caller overrides */
 function layoutWith(overrides) {
   var base = JSON.parse(JSON.stringify(PLOTLY_LAYOUT));
-  // Shallow-merge top-level keys; deep-merge xaxis/yaxis
+
+  // Merge theme overrides first
+  var theme = getPlotlyTheme();
+  Object.keys(theme).forEach(function (k) {
+    if ((k === 'xaxis' || k === 'yaxis' || k === 'yaxis2') && typeof theme[k] === 'object' && base[k]) {
+      Object.assign(base[k], theme[k]);
+    } else if (k === 'font' && base[k]) {
+      Object.assign(base[k], theme[k]);
+    } else if (k === 'hoverlabel' && base[k]) {
+      Object.assign(base[k], theme[k]);
+    } else {
+      base[k] = theme[k];
+    }
+  });
+
+  // Then merge caller overrides on top
   Object.keys(overrides).forEach(function (k) {
     if ((k === 'xaxis' || k === 'yaxis' || k === 'yaxis2') && typeof overrides[k] === 'object' && base[k]) {
       Object.assign(base[k], overrides[k]);
