@@ -246,6 +246,17 @@ const SECTOR_NORMALIZE = {
   'dao':                        'other',
   'daos':                       'other',
   'governance':                 'other',
+
+  // Token Terminal API v2 /market-sectors IDs (exact matches)
+  'blockchains-l1':             'l1',
+  'blockchains-l2':             'l2',
+  'blockchains-l3':             'l2',
+  'cex':                        'other',
+  'erc20-tokens':               'other',
+  'meme-coins':                 'other',
+  'nft-collection':             'nft',
+  'risk-curators':              'lending',
+  'rwa-issuers':                'rwa',
 };
 
 function normalizeSector(raw) {
@@ -511,6 +522,13 @@ function extractSectorRaw(p) {
     }
   }
 
+  // 1b. Check if market_sectors is a plain object (TT API v2 individual project format)
+  // e.g., { "lending": "Lending" } — keys are sector IDs, values are display names
+  if (p.market_sectors && typeof p.market_sectors === 'object' && !Array.isArray(p.market_sectors)) {
+    var msKeys = Object.keys(p.market_sectors);
+    if (msKeys.length > 0) return msKeys[0];
+  }
+
   // 2. Check string/object fields
   var stringFields = [
     'market_sector', 'market_sector_slug', 'market_sector_name',
@@ -529,7 +547,62 @@ function extractSectorRaw(p) {
   return '';
 }
 
-async function fetchProjectList() {
+// Build a reverse map (project_id → sector_id) from the /market-sectors endpoint.
+// The /projects listing does NOT include sector data, so we must fetch it separately.
+async function fetchSectorMap() {
+  try {
+    var json = await fetchTT('/market-sectors');
+    var sectors = Array.isArray(json) ? json : (json.data || []);
+
+    if (sectors.length === 0) {
+      console.warn('[fetchSectorMap] No sectors returned');
+      return {};
+    }
+
+    console.log('[fetchSectorMap] Found ' + sectors.length + ' market sectors, fetching project lists...');
+    var sectorMap = {};  // project_id -> sector_id
+
+    // Fetch all sector project lists with controlled concurrency
+    for (var i = 0; i < sectors.length; i += BATCH_CONCURRENCY) {
+      var chunk = sectors.slice(i, i + BATCH_CONCURRENCY);
+
+      var results = await Promise.allSettled(
+        chunk.map(function (sector) {
+          return fetchTT('/market-sectors/' + sector.id).then(function (result) {
+            return { sectorId: sector.id, data: result };
+          });
+        })
+      );
+
+      results.forEach(function (result) {
+        if (result.status === 'fulfilled' && result.value) {
+          var sectorId = result.value.sectorId;
+          var sData = result.value.data;
+          var projects = (sData.data && sData.data.projects) || (sData.projects) || [];
+          projects.forEach(function (p) {
+            var pid = (p.project_id || '').toLowerCase();
+            if (pid && !sectorMap[pid]) {
+              sectorMap[pid] = sectorId;
+            }
+          });
+        }
+      });
+
+      // Rate limit between batches
+      if (i + BATCH_CONCURRENCY < sectors.length) {
+        await new Promise(function (r) { setTimeout(r, BATCH_DELAY_MS); });
+      }
+    }
+
+    console.log('[fetchSectorMap] Built sector map for ' + Object.keys(sectorMap).length + ' projects');
+    return sectorMap;
+  } catch (e) {
+    console.warn('[fetchSectorMap] Failed:', e.message);
+    return {};
+  }
+}
+
+async function fetchProjectList(sectorMap) {
   try {
     var json = await fetchTT('/projects');
     // TT API may return { data: [...] } or [...] directly
@@ -551,7 +624,13 @@ async function fetchProjectList() {
       // Parse out the fields we need — handle various API response formats
       var id = p.project_id || p.id || p.slug || '';
       var name = p.name || p.project_name || id;
-      var sector = normalizeSector(extractSectorRaw(p));
+      // Use sector map (from /market-sectors) if available, otherwise try to extract from project data
+      var sector;
+      if (sectorMap && sectorMap[id.toLowerCase()]) {
+        sector = normalizeSector(sectorMap[id.toLowerCase()]);
+      } else {
+        sector = normalizeSector(extractSectorRaw(p));
+      }
 
       // Chains may be provided in various formats
       var chains = [];
@@ -767,10 +846,15 @@ async function fetchAllLiveData(onProgress) {
   const health = await fetch('/health').then(function (r) { return r.json(); }).catch(function () { return { api_configured: false }; });
   if (!health.api_configured) return null;
 
+  if (onProgress) onProgress(0, 0, 'Loading sector data...');
+
+  // 1.5. Build sector map from /market-sectors (the /projects listing has no sector data)
+  var sectorMap = await fetchSectorMap();
+
   if (onProgress) onProgress(0, 0, 'Discovering protocols...');
 
   // 2. Discover all projects from the API
-  var projectList = await fetchProjectList();
+  var projectList = await fetchProjectList(sectorMap);
   var projectConfigs = [];
 
   if (projectList && projectList.length > 0) {
