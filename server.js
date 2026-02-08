@@ -280,6 +280,41 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Debug endpoint: show raw field names from TT API /projects response
+  if (pathname === '/api/debug/projects-sample') {
+    if (!TT_API_KEY) {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'No API key configured' }));
+      return;
+    }
+    fetchTT('/projects').then(function (result) {
+      if (result.statusCode !== 200) {
+        res.writeHead(result.statusCode, { 'Content-Type': 'application/json' });
+        res.end(result.body);
+        return;
+      }
+      try {
+        var parsed = JSON.parse(result.body);
+        var projects = Array.isArray(parsed) ? parsed : (parsed.data || parsed.projects || []);
+        // Return first 3 projects with all field names visible
+        var sample = projects.slice(0, 3);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          total_projects: projects.length,
+          field_names: projects.length > 0 ? Object.keys(projects[0]) : [],
+          sample: sample
+        }, null, 2));
+      } catch (e) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ raw_truncated: result.body.slice(0, 2000) }));
+      }
+    }).catch(function (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    });
+    return;
+  }
+
   // Static files (with SPA fallback)
   serveStatic(pathname, res);
 });

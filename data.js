@@ -46,67 +46,232 @@ const SECTOR_LABELS = {
   'other':           'Other'
 };
 
-// Maps TT API sector names (and common variations) to our normalized keys
+// Maps TT API sector names (and common variations) to our normalized keys.
+// normalizeSector() lowercases and converts spaces/underscores to hyphens
+// before lookup, so entries here use lowercase-hyphenated form.
 const SECTOR_NORMALIZE = {
+  // Lending
   'lending':                    'lending',
   'lending-borrowing':          'lending',
+  'lending-&-borrowing':        'lending',
   'lending/borrowing':          'lending',
   'money-market':               'lending',
+  'money-markets':              'lending',
+  'credit':                     'lending',
+  'borrowing':                  'lending',
+  'collateralized-lending':     'lending',
+
+  // DEX
   'dex':                        'dex',
   'dexs':                       'dex',
   'dexes':                      'dex',
   'decentralized-exchange':     'dex',
   'decentralized-exchanges':    'dex',
   'exchange':                   'dex',
+  'exchanges':                  'dex',
   'amm':                        'dex',
+  'spot-dex':                   'dex',
+  'dex-aggregator':             'dex',
+  'dex-aggregators':            'dex',
+
+  // L1
   'l1':                         'l1',
   'layer-1':                    'l1',
   'layer1':                     'l1',
   'blockchain':                 'l1',
+  'blockchains':                'l1',
+  'chain':                      'l1',
+  'layer-1-blockchain':         'l1',
+
+  // Liquid Staking
   'liquid-staking':             'liquid-staking',
   'liquid_staking':             'liquid-staking',
   'staking':                    'liquid-staking',
+  'liquid-staking-derivatives': 'liquid-staking',
+  'liquid-restaking':           'liquid-staking',
+  'restaking':                  'liquid-staking',
+  'eth-staking':                'liquid-staking',
+  'lstfi':                      'liquid-staking',
+
+  // Derivatives
   'derivatives':                'derivatives',
   'perpetuals':                 'derivatives',
   'perps':                      'derivatives',
   'options':                    'derivatives',
+  'perpetual':                  'derivatives',
+  'futures':                    'derivatives',
+  'synthetic-assets':           'derivatives',
+  'synthetics':                 'derivatives',
+  'structured-products':        'derivatives',
+  'perp-dex':                   'derivatives',
+  'derivatives-dex':            'derivatives',
+
+  // Bridge
   'bridge':                     'bridge',
   'bridges':                    'bridge',
   'cross-chain':                'bridge',
+  'cross-chain-communication':  'bridge',
+  'cross-chain-bridge':         'bridge',
+  'interoperability':           'bridge',
+  'messaging':                  'bridge',
+
+  // CDP / Stablecoins
   'cdp':                        'cdp',
   'stablecoin':                 'cdp',
+  'stablecoins':                'cdp',
+  'stablecoin-issuer':          'cdp',
+  'stablecoin-issuers':         'cdp',
+  'collateralized-debt':        'cdp',
+
+  // Yield
   'yield':                      'yield',
   'yield-aggregator':           'yield',
+  'yield-aggregators':          'yield',
   'yield-farming':              'yield',
+  'vault':                      'yield',
+  'vaults':                     'yield',
+  'asset-management':           'yield',
+  'fund-management':            'yield',
+  'portfolio':                  'yield',
+  'optimizer':                  'yield',
+  'yield-optimizer':            'yield',
+
+  // Oracle
   'oracle':                     'oracle',
   'oracles':                    'oracle',
+  'data-feeds':                 'oracle',
+
+  // NFT
   'nft':                        'nft',
+  'nfts':                       'nft',
   'nft-marketplace':            'nft',
+  'nft-marketplaces':           'nft',
+  'nft-lending':                'nft',
+  'nft-fi':                     'nft',
+  'collectibles':               'nft',
+  'digital-collectibles':       'nft',
+  'music':                      'nft',
+  'art':                        'nft',
+  'fan-tokens':                 'nft',
+
+  // Gaming
   'gaming':                     'gaming',
   'gamefi':                     'gaming',
+  'game-fi':                    'gaming',
+  'games':                      'gaming',
+  'metaverse':                  'gaming',
+  'play-to-earn':               'gaming',
+
+  // Social
   'social':                     'social',
   'socialfi':                   'social',
+  'social-fi':                  'social',
+  'social-media':               'social',
+  'content':                    'social',
+
+  // L2
   'l2':                         'l2',
   'layer-2':                    'l2',
   'layer2':                     'l2',
   'rollup':                     'l2',
+  'rollups':                    'l2',
+  'optimistic-rollup':          'l2',
+  'zk-rollup':                  'l2',
+  'scaling':                    'l2',
+  'layer-2-blockchain':         'l2',
+
+  // Infrastructure
   'infrastructure':             'infrastructure',
   'infra':                      'infrastructure',
+  'developer-tools':            'infrastructure',
+  'developer-tooling':          'infrastructure',
+  'tooling':                    'infrastructure',
+  'mev':                        'infrastructure',
+  'data-availability':          'infrastructure',
+  'identity':                   'infrastructure',
+  'storage':                    'infrastructure',
+  'compute':                    'infrastructure',
+  'wallet':                     'infrastructure',
+  'wallets':                    'infrastructure',
+  'analytics':                  'infrastructure',
+  'security':                   'infrastructure',
+  'middleware':                  'infrastructure',
+  'indexer':                     'infrastructure',
+  'indexing':                    'infrastructure',
+  'node-infrastructure':        'infrastructure',
+  'rpc':                        'infrastructure',
+
+  // Payments
   'payments':                   'payments',
   'payment':                    'payments',
+  'payment-processing':         'payments',
+  'remittance':                 'payments',
+  'payroll':                    'payments',
+
+  // RWA
   'rwa':                        'rwa',
   'real-world-assets':          'rwa',
+  'tokenized-assets':           'rwa',
+  'real-estate':                'rwa',
+  'tokenization':               'rwa',
+  'securities':                 'rwa',
+  'treasury':                   'rwa',
+
+  // Prediction
   'prediction':                 'prediction',
   'prediction-market':          'prediction',
+  'prediction-markets':         'prediction',
+  'betting':                    'prediction',
+  'gambling':                   'prediction',
+
+  // Launchpad
   'launchpad':                  'launchpad',
+  'launchpads':                 'launchpad',
+  'ido':                        'launchpad',
+  'ico':                        'launchpad',
+  'token-launch':               'launchpad',
+
+  // AI
   'ai':                         'ai',
   'artificial-intelligence':    'ai',
+  'machine-learning':           'ai',
+  'ai-agents':                  'ai',
+  'depin':                      'ai',
+
+  // Insurance → other
+  'insurance':                  'other',
+  'indexes':                    'other',
+  'index':                      'other',
+  'privacy':                    'other',
+  'dao':                        'other',
+  'daos':                       'other',
+  'governance':                 'other',
 };
 
 function normalizeSector(raw) {
   if (!raw) return 'other';
-  var key = raw.toLowerCase().trim().replace(/[\s_]+/g, '-');
-  return SECTOR_NORMALIZE[key] || key;
+  // Normalize: lowercase, trim, replace spaces/underscores/slashes with hyphens
+  var key = raw.toLowerCase().trim()
+    .replace(/[/\\]+/g, '-')           // slashes → hyphens
+    .replace(/[\s_]+/g, '-')           // spaces/underscores → hyphens
+    .replace(/[&]+/g, '-')             // ampersands → hyphens
+    .replace(/-{2,}/g, '-')            // collapse multiple hyphens
+    .replace(/^-+|-+$/g, '');          // trim leading/trailing hyphens
+
+  if (SECTOR_NORMALIZE[key]) return SECTOR_NORMALIZE[key];
+
+  // Fallback: check if any normalize key is a substring of our input, or vice versa
+  var keys = Object.keys(SECTOR_NORMALIZE);
+  for (var i = 0; i < keys.length; i++) {
+    if (key.indexOf(keys[i]) !== -1 || keys[i].indexOf(key) !== -1) {
+      return SECTOR_NORMALIZE[keys[i]];
+    }
+  }
+
+  // If the normalized key matches one of our sector color keys, use it directly
+  if (SECTOR_COLORS[key]) return key;
+
+  return 'other';
 }
 
 // Default financial params by sector (for mock data generation)
@@ -330,19 +495,63 @@ async function fetchWithSlugRetry(projectId) {
 // ===================================================================
 // DYNAMIC PROJECT DISCOVERY
 // ===================================================================
+// Extract a sector string from a TT API project object.
+// The API uses various field names and formats (strings, arrays, objects).
+function extractSectorRaw(p) {
+  // 1. Check array fields first (TT API v2 commonly uses arrays)
+  var arrayFields = ['market_sectors', 'categories', 'tags', 'sectors'];
+  for (var i = 0; i < arrayFields.length; i++) {
+    var arr = p[arrayFields[i]];
+    if (Array.isArray(arr) && arr.length > 0) {
+      var first = arr[0];
+      if (typeof first === 'string') return first;
+      if (typeof first === 'object' && first !== null) {
+        return first.name || first.slug || first.label || first.title || '';
+      }
+    }
+  }
+
+  // 2. Check string/object fields
+  var stringFields = [
+    'market_sector', 'market_sector_slug', 'market_sector_name',
+    'sector', 'sector_slug', 'category', 'category_slug',
+    'type', 'project_type', 'protocol_type'
+  ];
+  for (var j = 0; j < stringFields.length; j++) {
+    var val = p[stringFields[j]];
+    if (typeof val === 'string' && val.trim()) return val;
+    if (typeof val === 'object' && val !== null) {
+      var extracted = val.name || val.slug || val.label || val.title || '';
+      if (extracted) return extracted;
+    }
+  }
+
+  return '';
+}
+
 async function fetchProjectList() {
   try {
     var json = await fetchTT('/projects');
     // TT API may return { data: [...] } or [...] directly
     var projects = Array.isArray(json) ? json : (json.data || json.projects || []);
 
+    // Log sample for debugging sector field discovery
+    if (projects.length > 0) {
+      var sample = projects[0];
+      var sectorKeys = Object.keys(sample).filter(function (k) {
+        return /sector|categor|type|tag|market/i.test(k);
+      });
+      console.log('[fetchProjectList] ' + projects.length + ' projects. Sector-related keys:', sectorKeys);
+      console.log('[fetchProjectList] Sample values:', sectorKeys.map(function (k) {
+        return k + '=' + JSON.stringify(sample[k]);
+      }).join(', '));
+    }
+
     return projects.map(function (p) {
       // Parse out the fields we need — handle various API response formats
       var id = p.project_id || p.id || p.slug || '';
       var name = p.name || p.project_name || id;
-      var sector = normalizeSector(
-        p.market_sector || p.sector || p.category || p.market_sector_slug || ''
-      );
+      var sector = normalizeSector(extractSectorRaw(p));
 
       // Chains may be provided in various formats
       var chains = [];
