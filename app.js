@@ -199,6 +199,9 @@ function renderActiveTab() {
       case 'compare':
         renderCompareTab();
         break;
+      case 'screener':
+        renderScreenerTab();
+        break;
       default:
         renderRevenueTab();
         break;

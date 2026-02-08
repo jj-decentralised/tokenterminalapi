@@ -1300,3 +1300,88 @@ function renderCompareTab() {
     tbody.innerHTML = th;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   9.  renderScreenerTab — Full-page sortable/filterable protocol table
+   ══════════════════════════════════════════════════════════════════════════ */
+
+function renderScreenerTab() {
+  var protocols = getFilteredProtocols();
+  var tbody = document.querySelector('#table-screener tbody');
+  if (!tbody) return;
+
+  var countEl = document.getElementById('screener-count');
+  if (countEl) countEl.textContent = protocols.length + ' protocols';
+
+  // Build rows with sortable data
+  var rows = protocols.map(function (p) {
+    var mo = getFilteredMonthly(p);
+    var last = mo.length > 0 ? mo[mo.length - 1] : null;
+    var prev = mo.length > 1 ? mo[mo.length - 2] : null;
+    var revGrowth = (last && prev && prev.revenue > 0) ? (last.revenue - prev.revenue) / prev.revenue : null;
+
+    return {
+      p: p,
+      name: p.name,
+      sector: p.sector,
+      revenue: last ? last.revenue : 0,
+      revGrowth: revGrowth,
+      fees: last ? last.fees : 0,
+      takeRate: last ? last.takeRate : 0,
+      fdv: last ? last.fdv : 0,
+      ps: last ? last.psRatio : 0,
+      tvl: last ? last.tvl : 0,
+      dau: last ? last.dau : 0,
+      grossMargin: last ? last.grossMargin : 0,
+      netMargin: last ? last.netMargin : 0,
+      consistency: p.consistency || 0
+    };
+  });
+
+  // Sort by revenue descending by default
+  rows.sort(function (a, b) { return b.revenue - a.revenue; });
+
+  var h = '';
+  rows.forEach(function (r) {
+    var color = SECTOR_COLORS[r.sector] || '#6b7280';
+    var sLabel = SECTOR_LABELS[r.sector] || r.sector;
+    var growthCls = r.revGrowth !== null ? (r.revGrowth >= 0 ? 'positive' : 'negative') : '';
+    var gmCls = r.grossMargin >= 0 ? 'positive' : 'negative';
+    var nmCls = r.netMargin >= 0 ? 'positive' : 'negative';
+
+    h += '<tr>';
+    h += '<td class="protocol-link" data-pid="' + r.p.id + '" style="font-weight:500;cursor:pointer;color:var(--accent-blue)">' + r.name + '</td>';
+    h += '<td style="font-family:var(--font-sans)"><span class="sector-dot" style="background:' + color + '"></span>' + sLabel + '</td>';
+    h += '<td>' + fmtUSD(r.revenue) + '</td>';
+    h += '<td class="' + growthCls + '">' + (r.revGrowth !== null ? fmtPct(r.revGrowth) : '\u2014') + '</td>';
+    h += '<td>' + fmtUSD(r.fees) + '</td>';
+    h += '<td>' + fmtPct(r.takeRate) + '</td>';
+    h += '<td>' + fmtUSD(r.fdv) + '</td>';
+    h += '<td>' + fmtX(r.ps) + '</td>';
+    h += '<td>' + fmtUSD(r.tvl) + '</td>';
+    h += '<td>' + fmtNum(r.dau) + '</td>';
+    h += '<td class="' + gmCls + '">' + fmtPct(r.grossMargin) + '</td>';
+    h += '<td class="' + nmCls + '">' + fmtPct(r.netMargin) + '</td>';
+    h += '<td>' + r.consistency.toFixed(3) + '</td>';
+    h += '</tr>';
+  });
+  tbody.innerHTML = h;
+
+  // Make protocol names clickable
+  tbody.querySelectorAll('.protocol-link').forEach(function (el) {
+    el.addEventListener('click', function () {
+      if (typeof showProtocolDetail === 'function') showProtocolDetail(el.dataset.pid);
+    });
+  });
+
+  // Make sortable
+  makeSortable(document.getElementById('table-screener'));
+
+  // CSV export
+  var csvBtn = document.getElementById('screener-csv');
+  if (csvBtn) {
+    csvBtn.onclick = function () {
+      exportTableCSV(document.getElementById('table-screener'), 'protocol-screener');
+    };
+  }
+}
