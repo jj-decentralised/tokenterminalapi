@@ -591,12 +591,17 @@ function _valTable(wf) {
   var sorted = wf.slice().sort(function (a,b) { return a.last.psRatio - b.last.psRatio; });
   var h = '';
   sorted.forEach(function (d) {
-    h += '<tr><td>' + d.p.name + '</td>'
+    h += '<tr><td class="protocol-link" data-pid="' + d.p.id + '">' + d.p.name + '</td>'
        + '<td>' + fmtUSD(d.last.fdv) + '</td>'
        + '<td>' + fmtUSD(d.last.revenue * 12) + '</td>'
        + '<td>' + fmtX(d.last.psRatio) + '</td></tr>';
   });
   tbody.innerHTML = h;
+  tbody.querySelectorAll('.protocol-link').forEach(function (el) {
+    el.addEventListener('click', function () {
+      if (typeof showProtocolDetail === 'function') showProtocolDetail(el.dataset.pid);
+    });
+  });
   addExportBtn('table-valuation', 'valuation-summary');
   makeSortable(document.getElementById('table-valuation'));
 }
@@ -934,12 +939,17 @@ function _ltvTable(wd) {
   var sorted = wd.slice().sort(function (a,b) { return (b._ltvCac||0)-(a._ltvCac||0); });
   var h = '';
   sorted.forEach(function (d) {
-    h += '<tr><td>' + d.p.name + '</td>'
+    h += '<tr><td class="protocol-link" data-pid="' + d.p.id + '">' + d.p.name + '</td>'
        + '<td>' + fmtUSD(d._ltv) + '</td>'
        + '<td>' + (d._cac > 0 ? fmtUSD(d._cac) : '—') + '</td>'
        + '<td>' + (d._ltvCac > 0 ? fmtX(d._ltvCac) : '—') + '</td></tr>';
   });
   tbody.innerHTML = h;
+  tbody.querySelectorAll('.protocol-link').forEach(function (el) {
+    el.addEventListener('click', function () {
+      if (typeof showProtocolDetail === 'function') showProtocolDetail(el.dataset.pid);
+    });
+  });
   addExportBtn('table-ltv', 'ltv-incentives');
   makeSortable(document.getElementById('table-ltv'));
 }
@@ -1117,12 +1127,17 @@ function _marginsTable(wd) {
     if (isL1 && nm < -5) { nmD += ' &dagger;'; l1fn = true; }
 
     var col = nm >= 0 ? 'var(--accent-teal)' : 'var(--accent-red)';
-    h += '<tr><td>' + d.p.name + '</td>'
+    h += '<tr><td class="protocol-link" data-pid="' + d.p.id + '">' + d.p.name + '</td>'
        + '<td>' + fmtUSD(rev) + '</td>'
        + '<td>' + fmtUSD(exp) + '</td>'
        + '<td style="color:'+col+'">' + nmD + '</td></tr>';
   });
   tbody.innerHTML = h;
+  tbody.querySelectorAll('.protocol-link').forEach(function (el) {
+    el.addEventListener('click', function () {
+      if (typeof showProtocolDetail === 'function') showProtocolDetail(el.dataset.pid);
+    });
+  });
   addExportBtn('table-margins', 'financial-summary');
   makeSortable(document.getElementById('table-margins'));
   return l1fn;

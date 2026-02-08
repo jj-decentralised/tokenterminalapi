@@ -7,9 +7,130 @@
 //     SECTOR_COLORS, SECTOR_LABELS                                          (data.js)
 //   renderRevenueTab(), renderValuationTab(), renderRetentionTab(),
 //     renderLTVTab(), renderMarginsTab()                                     (charts.js)
-//   fmtUSD(), makeSortable()                                                (utils.js)
+//   fmtUSD(), fmtPct(), fmtX(), fmtNum(), makeSortable(), changeClass()    (utils.js)
 //   Plotly                                                                   (CDN)
 // ===================================================================
+
+// ===================================================================
+// PROTOCOL DETAIL MODAL
+// ===================================================================
+
+/**
+ * Show a detailed modal for a specific protocol, including KPIs,
+ * revenue/earnings chart, margins chart, and a monthly data table.
+ */
+function showProtocolDetail(protocolId) {
+  if (!STATE.data || !STATE.data[protocolId]) return;
+  var p = STATE.data[protocolId];
+  var modal = document.getElementById('protocol-modal');
+  if (!modal) return;
+
+  // Header
+  var nameEl = document.getElementById('modal-protocol-name');
+  if (nameEl) nameEl.textContent = p.name;
+
+  var metaEl = document.getElementById('modal-protocol-meta');
+  if (metaEl) {
+    var color = SECTOR_COLORS[p.sector] || '#6b7280';
+    var label = SECTOR_LABELS[p.sector] || p.sector;
+    metaEl.innerHTML = '<span class="sector-dot" style="background:' + color + '"></span>' + label +
+      ' \u00b7 ' + (p.chains || []).join(', ');
+  }
+
+  // KPIs
+  var kpis = document.getElementById('modal-kpis');
+  if (kpis && p.monthly && p.monthly.length > 0) {
+    var last = p.monthly[p.monthly.length - 1];
+    var prev = p.monthly.length > 1 ? p.monthly[p.monthly.length - 2] : null;
+    var revGrowth = prev && prev.revenue > 0 ? (last.revenue - prev.revenue) / prev.revenue : null;
+
+    kpis.innerHTML =
+      '<div class="kpi-card"><div class="kpi-label">Monthly Revenue</div><div class="kpi-value">' + fmtUSD(last.revenue) + '</div>' +
+        (revGrowth !== null ? '<div class="kpi-change ' + changeClass(revGrowth) + '">' + fmtPct(revGrowth) + ' MoM</div>' : '') + '</div>' +
+      '<div class="kpi-card"><div class="kpi-label">FDV</div><div class="kpi-value">' + fmtUSD(last.fdv) + '</div></div>' +
+      '<div class="kpi-card"><div class="kpi-label">P/S Ratio</div><div class="kpi-value">' + fmtX(last.psRatio) + '</div></div>' +
+      '<div class="kpi-card"><div class="kpi-label">Net Margin</div><div class="kpi-value">' + fmtPct(last.netMargin) + '</div></div>';
+  }
+
+  // Revenue chart
+  if (p.monthly && p.monthly.length > 0) {
+    var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    var chartColor = SECTOR_COLORS[p.sector] || '#4a9eff';
+
+    Plotly.react('modal-chart-revenue', [
+      {
+        x: p.monthly.map(function (m) { return m.month; }),
+        y: p.monthly.map(function (m) { return m.revenue; }),
+        name: 'Revenue',
+        type: 'bar',
+        marker: { color: chartColor, opacity: 0.8 },
+        hovertemplate: '%{x}: %{y:$,.0f}<extra></extra>'
+      },
+      {
+        x: p.monthly.map(function (m) { return m.month; }),
+        y: p.monthly.map(function (m) { return m.earnings; }),
+        name: 'Earnings',
+        type: 'scatter', mode: 'lines+markers',
+        line: { color: isDark ? '#4af6c3' : '#059669', width: 2 }, marker: { size: 3 },
+        hovertemplate: '%{x}: %{y:$,.0f}<extra></extra>'
+      }
+    ], {
+      font: { family: 'Inter, sans-serif', size: 11, color: isDark ? '#c8c8c8' : '#333' },
+      paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+      margin: { t: 30, r: 16, b: 40, l: 60 },
+      title: { text: 'Revenue & Earnings', font: { size: 13 } },
+      yaxis: { tickformat: '$,.0s', gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)' },
+      xaxis: { type: 'category', gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)' },
+      legend: { orientation: 'h', y: -0.15 },
+      autosize: true
+    }, { displayModeBar: false, responsive: true });
+
+    // Margins chart
+    Plotly.react('modal-chart-margins', [
+      {
+        x: p.monthly.map(function (m) { return m.month; }),
+        y: p.monthly.map(function (m) { return m.grossMargin * 100; }),
+        name: 'Gross Margin',
+        type: 'scatter', mode: 'lines',
+        line: { color: isDark ? '#4a9eff' : '#2563eb', width: 2 },
+        hovertemplate: '%{x}: %{y:.1f}%<extra></extra>'
+      },
+      {
+        x: p.monthly.map(function (m) { return m.month; }),
+        y: p.monthly.map(function (m) { return Math.max(-300, m.netMargin * 100); }),
+        name: 'Net Margin',
+        type: 'scatter', mode: 'lines',
+        line: { color: isDark ? '#4af6c3' : '#059669', width: 2 },
+        hovertemplate: '%{x}: %{y:.1f}%<extra></extra>'
+      }
+    ], {
+      font: { family: 'Inter, sans-serif', size: 11, color: isDark ? '#c8c8c8' : '#333' },
+      paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+      margin: { t: 30, r: 16, b: 40, l: 50 },
+      title: { text: 'Margins', font: { size: 13 } },
+      yaxis: { tickformat: '.0f', ticksuffix: '%', range: [-300, 100], gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)' },
+      xaxis: { type: 'category', gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)' },
+      legend: { orientation: 'h', y: -0.15 },
+      autosize: true
+    }, { displayModeBar: false, responsive: true });
+  }
+
+  // Monthly data table
+  var tableWrap = document.getElementById('modal-monthly-table');
+  if (tableWrap && p.monthly && p.monthly.length > 0) {
+    var h = '<table class="data-table"><thead><tr><th>Month</th><th>Revenue</th><th>Fees</th><th>Earnings</th><th>TVL</th><th>DAU</th><th>P/S</th></tr></thead><tbody>';
+    // Show latest 12 months reversed
+    p.monthly.slice(-12).reverse().forEach(function (m) {
+      h += '<tr><td>' + m.month + '</td><td>' + fmtUSD(m.revenue) + '</td><td>' + fmtUSD(m.fees) + '</td><td>' + fmtUSD(m.earnings) + '</td><td>' + fmtUSD(m.tvl) + '</td><td>' + fmtNum(m.dau) + '</td><td>' + fmtX(m.psRatio) + '</td></tr>';
+    });
+    h += '</tbody></table>';
+    tableWrap.innerHTML = h;
+  }
+
+  // Show modal
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
 
 // ===================================================================
 // TAB SWITCHING
@@ -268,6 +389,37 @@ function applyStateToDom() {
 document.addEventListener('DOMContentLoaded', async function () {
 
   // ------------------------------------------------------------------
+  // 0a. Modal close handlers (set up early, before async data loading)
+  // ------------------------------------------------------------------
+  var modalCloseBtn = document.getElementById('modal-close');
+  var modalOverlay = document.getElementById('protocol-modal');
+  if (modalCloseBtn) {
+    modalCloseBtn.addEventListener('click', function () {
+      modalOverlay.style.display = 'none';
+      document.body.style.overflow = '';
+    });
+  }
+  if (modalOverlay) {
+    modalOverlay.addEventListener('click', function (e) {
+      if (e.target === modalOverlay) {
+        modalOverlay.style.display = 'none';
+        document.body.style.overflow = '';
+      }
+    });
+  }
+
+  // Escape key closes modal
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      var modal = document.getElementById('protocol-modal');
+      if (modal && modal.style.display !== 'none') {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+      }
+    }
+  });
+
+  // ------------------------------------------------------------------
   // 0. Theme: check localStorage, default to dark
   // ------------------------------------------------------------------
   var savedTheme = localStorage.getItem('tt-theme') || 'dark';
@@ -457,6 +609,66 @@ document.addEventListener('DOMContentLoaded', async function () {
       STATE.period = parseInt(e.target.value, 10) || 24;
       renderActiveTab();
       encodeStateToURL();
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // i2. Wire up protocol search bar
+  // ------------------------------------------------------------------
+  var searchInput = document.getElementById('protocol-search');
+  var searchResults = document.getElementById('search-results');
+  if (searchInput && searchResults) {
+    searchInput.addEventListener('input', function () {
+      var query = searchInput.value.toLowerCase().trim();
+      if (!query || query.length < 2 || !STATE.data) {
+        searchResults.style.display = 'none';
+        return;
+      }
+      var matches = Object.values(STATE.data).filter(function (p) {
+        return p.name.toLowerCase().indexOf(query) !== -1 || p.id.toLowerCase().indexOf(query) !== -1;
+      }).slice(0, 15);
+
+      if (matches.length === 0) {
+        searchResults.style.display = 'none';
+        return;
+      }
+
+      var html = '';
+      matches.forEach(function (p) {
+        var color = SECTOR_COLORS[p.sector] || '#6b7280';
+        var label = SECTOR_LABELS[p.sector] || p.sector;
+        html += '<div class="search-item" data-protocol="' + p.id + '">';
+        html += '<div>' + p.name + '</div>';
+        html += '<div class="search-sector"><span class="sector-dot" style="background:' + color + '"></span>' + label + '</div>';
+        html += '</div>';
+      });
+      searchResults.innerHTML = html;
+      searchResults.style.display = 'block';
+
+      // Click handler for search results
+      searchResults.querySelectorAll('.search-item').forEach(function (item) {
+        item.addEventListener('click', function () {
+          var pid = item.dataset.protocol;
+          searchResults.style.display = 'none';
+          searchInput.value = '';
+          showProtocolDetail(pid);
+        });
+      });
+    });
+
+    // Close search on click outside
+    document.addEventListener('click', function (e) {
+      if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+        searchResults.style.display = 'none';
+      }
+    });
+
+    // Close on Escape
+    searchInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        searchResults.style.display = 'none';
+        searchInput.blur();
+      }
     });
   }
 

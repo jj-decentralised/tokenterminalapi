@@ -82,6 +82,13 @@
       </select>
     </div>
 
+    <!-- Protocol search -->
+    <div class="filter-group search-group">
+      <label class="filter-label" for="protocol-search">Search</label>
+      <input type="text" id="protocol-search" placeholder="Search protocols..." autocomplete="off">
+      <div id="search-results" class="search-results"></div>
+    </div>
+
     <!-- Dynamic sector legend (built by app.js) -->
     <div class="filter-group" id="sector-legend"></div>
   </nav>
@@ -441,6 +448,27 @@
     <span class="footer-separator">&middot;</span>
     <span id="footer-protocol-count"></span>
   </footer>
+
+  <!-- ============================================================
+       Protocol Detail Modal
+       ============================================================ -->
+  <div id="protocol-modal" class="modal-overlay" style="display:none">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-protocol-name">Protocol</h2>
+        <div id="modal-protocol-meta" class="modal-meta"></div>
+        <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-kpis" id="modal-kpis"></div>
+        <div class="modal-charts">
+          <div id="modal-chart-revenue" class="modal-chart"></div>
+          <div id="modal-chart-margins" class="modal-chart"></div>
+        </div>
+        <div class="modal-table-wrap" id="modal-monthly-table"></div>
+      </div>
+    </div>
+  </div>
 
   <!-- ============================================================
        Scripts — loaded in dependency order
