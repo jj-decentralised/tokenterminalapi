@@ -472,8 +472,8 @@ function generateCohorts(retentionBase, id) {
 // ===================================================================
 const API_BASE = '/api/tt';
 const FETCH_STATUS = {};
-// Maximum number of protocols to load from API
-const MAX_PROTOCOLS = 500;
+// Maximum number of protocols to load from API (no artificial cap — take all with revenue)
+const MAX_PROTOCOLS = 2000;
 // Concurrency for batch fetching (stay well within 1000 req/min)
 const BATCH_CONCURRENCY = 15;
 const BATCH_DELAY_MS = 200;

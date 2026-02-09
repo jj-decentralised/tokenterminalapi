@@ -611,8 +611,8 @@ async function runSync() {
     console.log('[sync] Fetching project list...');
     const projJson = await fetchTTJson('/projects');
     const projects = Array.isArray(projJson) ? projJson : (projJson.data || projJson.projects || []);
-    const toSync = projects.slice(0, 500);
-    console.log(`[sync] Found ${projects.length} projects, syncing ${toSync.length}`);
+    const toSync = projects;
+    console.log(`[sync] Found ${projects.length} projects, syncing all`);
 
     // 4. Upsert protocols
     for (const p of toSync) {
@@ -643,7 +643,32 @@ async function runSync() {
 
     console.log('[sync] Fetching metrics...');
     let okCount = 0, emptyCount = 0, failCount = 0;
-    const protocolIds = toSync.map(p => (p.project_id || p.id || '').toLowerCase()).filter(Boolean);
+    const allProtocolIds = toSync.map(p => (p.project_id || p.id || '').toLowerCase()).filter(Boolean);
+
+    // Smart-filter: skip protocols with 2+ consecutive empty syncs
+    let skippable = new Set();
+    try {
+      const skipRes = await db.query(`
+        SELECT protocol_id FROM (
+          SELECT protocol_id, status,
+            ROW_NUMBER() OVER (PARTITION BY protocol_id ORDER BY completed_at DESC) AS rn
+          FROM sync_log
+          WHERE endpoint LIKE '%/metrics%'
+        ) recent
+        WHERE rn <= 2
+        GROUP BY protocol_id
+        HAVING COUNT(*) = 2
+          AND COUNT(*) FILTER (WHERE status = 'empty') = 2
+      `);
+      skippable = new Set(skipRes.rows.map(r => r.protocol_id));
+    } catch (e) {
+      console.warn('[sync] Could not query skippable protocols:', e.message);
+    }
+    const protocolIds = allProtocolIds.filter(pid => !skippable.has(pid));
+    const skippedCount = allProtocolIds.length - protocolIds.length;
+    if (skippedCount > 0) {
+      console.log(`[sync] Skipping ${skippedCount} known-empty protocols, fetching ${protocolIds.length}`);
+    }
     let consecutiveRateLimits = 0;
 
     for (let i = 0; i < protocolIds.length; i += BATCH_SIZE) {
@@ -748,7 +773,7 @@ async function runSync() {
     await computeProtocolLatest();
 
     lastSyncTime = new Date();
-    console.log(`[sync] Complete: ${okCount} ok, ${emptyCount} empty (no data), ${failCount} failed, ${((Date.now() - start) / 1000).toFixed(0)}s`);
+    console.log(`[sync] Complete: ${okCount} ok, ${emptyCount} empty, ${failCount} failed, ${skippedCount} skipped (known-empty), ${((Date.now() - start) / 1000).toFixed(0)}s`);
 
   } catch (e) {
     console.error('[sync] Fatal error:', e.message);

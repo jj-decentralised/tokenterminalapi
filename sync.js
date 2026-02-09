@@ -20,11 +20,11 @@ const { Pool } = require('pg');
 
 const TT_BASE = 'https://api.tokenterminal.com/v2';
 const TT_KEY = process.env.TT_API_KEY;
-const MAX_PROTOCOLS = 500;
 const BATCH_SIZE = 2;        // Small batches to avoid burst-triggering rate limits
 const BATCH_DELAY = 3000;    // 3s between batches → ~40 req/min (very conservative)
 const MAX_RETRIES = 3;       // Retry 429s with exponential backoff
 const RATE_LIMIT_COOLDOWN = 30000; // 30s cooldown when 429 detected at batch level
+const EMPTY_STREAK_THRESHOLD = 2;  // Skip protocols with this many consecutive empty syncs
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -121,7 +121,7 @@ async function syncProjects(sectorMap) {
   try {
     await client.query('BEGIN');
 
-    for (const p of projects.slice(0, MAX_PROTOCOLS)) {
+    for (const p of projects) {
       const id = (p.project_id || p.id || p.slug || '').toLowerCase();
       if (!id) continue;
 
@@ -146,8 +146,8 @@ async function syncProjects(sectorMap) {
     }
 
     await client.query('COMMIT');
-    console.log(`[sync] Upserted ${Math.min(projects.length, MAX_PROTOCOLS)} protocols`);
-    return projects.slice(0, MAX_PROTOCOLS).map(p => (p.project_id || p.id || '').toLowerCase()).filter(Boolean);
+    console.log(`[sync] Upserted ${projects.length} protocols (all discovered)`);
+    return projects.map(p => (p.project_id || p.id || '').toLowerCase()).filter(Boolean);
   } catch (e) {
     await client.query('ROLLBACK');
     throw e;
@@ -277,18 +277,48 @@ async function syncMetricsForProtocol(protocolId) {
   }
 }
 
+// Find protocols whose last N syncs were all 'empty' — skip them to save API calls
+async function getSkippableProtocols() {
+  try {
+    const result = await pool.query(`
+      SELECT protocol_id FROM (
+        SELECT protocol_id, status,
+          ROW_NUMBER() OVER (PARTITION BY protocol_id ORDER BY completed_at DESC) AS rn
+        FROM sync_log
+        WHERE endpoint LIKE '%/metrics%'
+      ) recent
+      WHERE rn <= ${EMPTY_STREAK_THRESHOLD}
+      GROUP BY protocol_id
+      HAVING COUNT(*) = ${EMPTY_STREAK_THRESHOLD}
+        AND COUNT(*) FILTER (WHERE status = 'empty') = ${EMPTY_STREAK_THRESHOLD}
+    `);
+    return new Set(result.rows.map(r => r.protocol_id));
+  } catch (e) {
+    console.warn('[sync] Could not query skippable protocols:', e.message);
+    return new Set();
+  }
+}
+
 async function syncAllMetrics(protocolIds) {
   // Cooldown before starting metrics to let rate limit window reset
   console.log('[sync] Cooling down 15s before metrics fetch...');
   await sleep(15000);
 
-  console.log(`[sync] Syncing metrics for ${protocolIds.length} protocols...`);
+  // Smart-filter: skip protocols that consistently return empty data
+  const skippable = await getSkippableProtocols();
+  const toFetch = protocolIds.filter(pid => !skippable.has(pid));
+  const skipped = protocolIds.length - toFetch.length;
+  if (skipped > 0) {
+    console.log(`[sync] Skipping ${skipped} protocols with ${EMPTY_STREAK_THRESHOLD}+ consecutive empty syncs`);
+  }
+
+  console.log(`[sync] Syncing metrics for ${toFetch.length} protocols (${protocolIds.length} total, ${skipped} skipped)...`);
   let total = 0;
   let failed = 0;
   let consecutiveRateLimits = 0;
 
-  for (let i = 0; i < protocolIds.length; i += BATCH_SIZE) {
-    const chunk = protocolIds.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
+    const chunk = toFetch.slice(i, i + BATCH_SIZE);
     const results = await Promise.allSettled(
       chunk.map(pid => syncMetricsForProtocol(pid))
     );
@@ -304,9 +334,9 @@ async function syncAllMetrics(protocolIds) {
       }
     }
 
-    const done = Math.min(i + BATCH_SIZE, protocolIds.length);
-    if (done % 50 === 0 || done === protocolIds.length) {
-      console.log(`[sync] Progress: ${done}/${protocolIds.length} (${total} ok, ${failed} failed)`);
+    const done = Math.min(i + BATCH_SIZE, toFetch.length);
+    if (done % 50 === 0 || done === toFetch.length) {
+      console.log(`[sync] Progress: ${done}/${toFetch.length} (${total} ok, ${failed} failed)`);
     }
 
     // Adaptive backoff: if any request was rate-limited, cool down
@@ -317,11 +347,11 @@ async function syncAllMetrics(protocolIds) {
       await sleep(cooldown);
     } else {
       consecutiveRateLimits = Math.max(0, consecutiveRateLimits - 1);
-      if (i + BATCH_SIZE < protocolIds.length) await sleep(BATCH_DELAY);
+      if (i + BATCH_SIZE < toFetch.length) await sleep(BATCH_DELAY);
     }
   }
 
-  console.log(`[sync] Metrics sync complete: ${total} ok, ${failed} failed`);
+  console.log(`[sync] Metrics sync complete: ${total} ok, ${failed} failed, ${skipped} skipped (known-empty)`);
 }
 
 // =============================================================================
