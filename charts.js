@@ -803,12 +803,59 @@ function renderRetentionTab() {
   addTooltip('chart-seasonality',
     'Average revenue by calendar month across all protocols.');
 
-  /* ── Charts (top 25 for dense visuals) ─────────────────────────── */
-  var top25 = _collectTop(25);
-  _retHeatmap(top25);
-  _retTrends(top25);
-  _retSeason(sAvg, mNames);
-  _retCohort(top25);
+  /* ── Retention Controls: Sector dropdown ──────────────────────────── */
+  var retSectorSelect = document.getElementById('ret-sector-select');
+  if (retSectorSelect) {
+    var sectorSet = {};
+    all.forEach(function (d) { if (d.p.sector) sectorSet[d.p.sector] = true; });
+    var sectors = Object.keys(sectorSet).sort();
+    retSectorSelect.innerHTML = '<option value="all">All Sectors</option>';
+    sectors.forEach(function (sec) {
+      var o = document.createElement('option');
+      o.value = sec;
+      o.textContent = SECTOR_LABELS[sec] || sec;
+      if (sec === STATE.retSector) o.selected = true;
+      retSectorSelect.appendChild(o);
+    });
+    retSectorSelect.onchange = function () {
+      STATE.retSector = retSectorSelect.value;
+      renderRetentionTab();
+    };
+  }
+
+  /* ── Retention Controls: Count toggle ─────────────────────────────── */
+  var btn5   = document.getElementById('ret-count-5');
+  var btn10  = document.getElementById('ret-count-10');
+  var btnAll = document.getElementById('ret-count-all');
+  [btn5, btn10, btnAll].forEach(function (b) { if (b) b.classList.remove('active'); });
+  if (STATE.retCount === 5 && btn5)        btn5.classList.add('active');
+  else if (STATE.retCount === 0 && btnAll) btnAll.classList.add('active');
+  else if (btn10)                          btn10.classList.add('active');
+
+  function _setRetCount(n) { STATE.retCount = n; renderRetentionTab(); }
+  if (btn5)   btn5.onclick  = function () { _setRetCount(5); };
+  if (btn10)  btn10.onclick = function () { _setRetCount(10); };
+  if (btnAll) btnAll.onclick = function () { _setRetCount(0); };
+
+  /* ── Build filtered protocol list for charts ──────────────────────── */
+  var filtered = all;
+  if (STATE.retSector !== 'all') {
+    filtered = filtered.filter(function (d) { return d.p.sector === STATE.retSector; });
+  }
+  filtered.sort(function (a, b) {
+    var ar = a.last ? a.last.revenue : 0;
+    var br = b.last ? b.last.revenue : 0;
+    return br - ar;
+  });
+  if (STATE.retCount > 0 && filtered.length > STATE.retCount) {
+    filtered = filtered.slice(0, STATE.retCount);
+  }
+
+  /* ── Charts ───────────────────────────────────────────────────────── */
+  _retHeatmap(filtered);
+  _retTrends(filtered);
+  _retSeason(sAvg, mNames, all);
+  _retCohort(filtered);
 }
 
 /* ----- Retention Heatmap ----- */
@@ -866,26 +913,118 @@ function _retTrends(all) {
   }));
 }
 
-/* ----- Seasonality ----- */
-function _retSeason(sAvg, mNames) {
+/* ----- Seasonality (gradient + YoY overlay + median line) ----- */
+function _retSeason(sAvg, mNames, allData) {
   if (sAvg.every(function (v) { return v===0; })) { emptyState('chart-seasonality'); return; }
 
+  /* ── Compute statistics ───────────────────────────────────────── */
+  var posVals = sAvg.filter(function (v) { return v > 0; });
+  var mean = posVals.length > 0 ? posVals.reduce(function (s, v) { return s + v; }, 0) / posVals.length : 0;
+  var sorted = posVals.slice().sort(function (a, b) { return a - b; });
+  var median = sorted.length === 0 ? 0 :
+    sorted.length % 2 === 0 ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2 : sorted[Math.floor(sorted.length / 2)];
   var maxV = Math.max.apply(null, sAvg);
-  var posMin = Math.min.apply(null, sAvg.filter(function(v){return v>0;}));
+  var minV = posVals.length > 0 ? Math.min.apply(null, posVals) : 0;
+  var range = maxV - minV;
 
-  safeReact('chart-seasonality', [{
-    x: mNames,
-    y: sAvg,
-    name: 'Avg Revenue',
+  /* ── Gradient color: red(0%) -> amber(50%) -> green(100%) ───── */
+  var colors = sAvg.map(function (v) {
+    if (v <= 0) return '#333';
+    var pct = range > 0 ? (v - minV) / range : 0.5;
+    var r, g, b;
+    if (pct <= 0.5) {
+      var t = pct * 2;
+      r = Math.round(255 * (1 - t) + 251 * t);
+      g = Math.round(90  * (1 - t) + 191 * t);
+      b = Math.round(84  * (1 - t) + 36  * t);
+    } else {
+      var t = (pct - 0.5) * 2;
+      r = Math.round(251 * (1 - t) + 74  * t);
+      g = Math.round(191 * (1 - t) + 246 * t);
+      b = Math.round(36  * (1 - t) + 195 * t);
+    }
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  });
+
+  /* ── Deviation from mean ──────────────────────────────────────── */
+  var devText = sAvg.map(function (v) {
+    if (v <= 0 || mean <= 0) return '';
+    var dev = ((v - mean) / mean) * 100;
+    return (dev >= 0 ? '+' : '') + dev.toFixed(1) + '%';
+  });
+
+  /* ── Value labels ─────────────────────────────────────────────── */
+  var barText = sAvg.map(function (v) { return fmtUSD(v, true); });
+
+  /* ── Build year-by-year data for overlay ──────────────────────── */
+  var yearRev = {}, yearCnt = {};
+  if (allData) {
+    allData.forEach(function (d) {
+      d.mo.forEach(function (m) {
+        var yr = m.date ? m.date.slice(0, 4) : null;
+        if (!yr) return;
+        var c = m.calMonth;
+        if (!yearRev[yr]) { yearRev[yr] = new Array(12).fill(0); yearCnt[yr] = new Array(12).fill(0); }
+        yearRev[yr][c] += m.revenue;
+        yearCnt[yr][c]++;
+      });
+    });
+  }
+
+  var traces = [];
+  var yearColors = ['rgba(74,158,255,0.3)', 'rgba(251,139,30,0.3)',
+                    'rgba(167,139,250,0.3)', 'rgba(74,246,195,0.3)',
+                    'rgba(255,90,84,0.3)'];
+  var years = Object.keys(yearRev).sort();
+  // Show at most 4 most recent years to avoid clutter
+  if (years.length > 4) years = years.slice(years.length - 4);
+
+  years.forEach(function (yr, idx) {
+    var yAvg = yearRev[yr].map(function (v, i) {
+      return yearCnt[yr][i] > 0 ? v / yearCnt[yr][i] : 0;
+    });
+    traces.push({
+      x: mNames, y: yAvg,
+      name: yr,
+      type: 'bar',
+      marker: { color: yearColors[idx % yearColors.length], line: { width: 0 } },
+      hovertemplate: yr + ' %{x}: %{y:$,.0f}<extra></extra>',
+      opacity: 0.5
+    });
+  });
+
+  /* Main average bars (on top, with gradient colors and labels) */
+  traces.push({
+    x: mNames, y: sAvg,
+    name: 'Average',
     type: 'bar',
-    marker: { color: sAvg.map(function (v) {
-      return v===maxV ? '#4af6c3' : v===posMin ? '#ff5a54' : '#4a9eff';
-    })},
-    hovertemplate: '%{x}: %{y:$,.0f}<extra></extra>'
-  }], layoutWith({
+    marker: { color: colors, line: { color: 'rgba(255,255,255,0.15)', width: 1 } },
+    text: barText,
+    textposition: 'outside',
+    textfont: { size: 9, color: '#e8e8e8' },
+    customdata: devText,
+    hovertemplate: '%{x}: %{y:$,.0f}<br>vs mean: %{customdata}<extra>Average</extra>'
+  });
+
+  /* ── Median reference line + annotation ───────────────────────── */
+  var shapes = [{
+    type: 'line', x0: -0.5, x1: 11.5, y0: median, y1: median,
+    line: { color: '#fbbf24', width: 1.5, dash: 'dash' }
+  }];
+  var annotations = [{
+    x: 11.5, y: median, xanchor: 'left',
+    text: ' Median ' + fmtUSD(median, true),
+    showarrow: false, font: { size: 9, color: '#fbbf24' }
+  }];
+
+  safeReact('chart-seasonality', traces, layoutWith({
     yaxis: { tickformat: '$,.0s', nticks: 6 },
-    showlegend: false,
-    xaxis: { categoryorder: 'array', categoryarray: mNames }
+    xaxis: { categoryorder: 'array', categoryarray: mNames },
+    barmode: 'overlay',
+    shapes: shapes,
+    annotations: annotations,
+    legend: { orientation: 'h', y: -0.22, x: 0.5, xanchor: 'center', font: { size: 9 } },
+    margin: { t: 32, r: 60, b: 64, l: 64 }
   }));
 }
 

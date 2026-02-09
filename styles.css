@@ -976,6 +976,65 @@ main { padding: var(--spacing-lg) var(--spacing-xl); }
   border-color: var(--accent-blue);
 }
 
+/* ===== RETENTION CONTROLS ===== */
+.retention-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: 12px 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: var(--spacing-md);
+  flex-wrap: wrap;
+}
+.retention-controls label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  margin-right: 4px;
+}
+.retention-controls select {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+  min-width: 160px;
+}
+.retention-controls select:focus { border-color: var(--accent-blue); }
+.retention-count-toggle {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+.retention-count-toggle button {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.retention-count-toggle button:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+.retention-count-toggle button:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.retention-count-toggle button:hover { color: var(--text-primary); border-color: var(--accent-blue); }
+.retention-count-toggle button.active {
+  background: var(--accent-blue);
+  color: #fff;
+  border-color: var(--accent-blue);
+}
+
 /* Financial statements table */
 .financials-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .financials-table th {

@@ -10,6 +10,8 @@ const STATE = {
   dataSource: null, // 'live' or 'mock'
   dataTimestamp: null,
   decompProtocol: null, // selected protocol for decomposition chart
+  retSector: 'all',    // sector filter for retention charts
+  retCount: 10,        // protocol count for retention charts (5, 10, or 0=all)
 };
 
 // ===================================================================
@@ -106,6 +108,8 @@ function encodeStateToURL() {
   if (STATE.chain !== 'all') params.set('chain', STATE.chain);
   if (STATE.period !== 24) params.set('period', STATE.period);
   if (STATE.decompProtocol) params.set('protocol', STATE.decompProtocol);
+  if (STATE.retSector !== 'all') params.set('retSector', STATE.retSector);
+  if (STATE.retCount !== 10) params.set('retCount', STATE.retCount);
   const hash = params.toString();
   window.history.replaceState(null, '', hash ? '#' + hash : window.location.pathname);
 }
@@ -119,4 +123,6 @@ function decodeStateFromURL() {
   if (params.has('chain')) STATE.chain = params.get('chain');
   if (params.has('period')) STATE.period = parseInt(params.get('period')) || 24;
   if (params.has('protocol')) STATE.decompProtocol = params.get('protocol');
+  if (params.has('retSector')) STATE.retSector = params.get('retSector');
+  if (params.has('retCount')) STATE.retCount = parseInt(params.get('retCount')) || 10;
 }
