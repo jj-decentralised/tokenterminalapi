@@ -93,11 +93,21 @@ function fetchTT(apiPath) {
   });
 }
 
-function fetchTTJson(apiPath) {
-  return fetchTT(apiPath).then(r => {
+async function fetchTTJson(apiPath) {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const r = await fetchTT(apiPath);
+    if (r.statusCode === 429) {
+      if (attempt < MAX_RETRIES) {
+        const backoff = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+        console.warn(`[RATE-LIMIT] 429 on ${apiPath}, retrying in ${backoff / 1000}s (attempt ${attempt + 1}/${MAX_RETRIES})`);
+        await sleep(backoff);
+        continue;
+      }
+      throw new Error('API 429 (rate limited after retries): ' + apiPath);
+    }
     if (r.statusCode >= 400) throw new Error('API ' + r.statusCode + ': ' + apiPath);
     return JSON.parse(r.body);
-  });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -451,8 +461,9 @@ function handleDbStatus(res) {
 // Runs on server startup + every 6 hours.
 // ==========================================================================
 
-const BATCH_SIZE = 15;
-const BATCH_DELAY = 250;
+const BATCH_SIZE = 5;       // Conservative: 5 concurrent requests per batch
+const BATCH_DELAY = 2000;   // 2s between batches → ~150 req/min (well under 1000/min limit)
+const MAX_RETRIES = 3;      // Retry 429s with exponential backoff
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 

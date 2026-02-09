@@ -21,8 +21,9 @@ const { Pool } = require('pg');
 const TT_BASE = 'https://api.tokenterminal.com/v2';
 const TT_KEY = process.env.TT_API_KEY;
 const MAX_PROTOCOLS = 500;
-const BATCH_SIZE = 15;
-const BATCH_DELAY = 250; // ms between batches
+const BATCH_SIZE = 5;        // Conservative: 5 concurrent requests per batch
+const BATCH_DELAY = 2000;    // 2s between batches → ~150 req/min (well under 1000/min limit)
+const MAX_RETRIES = 3;       // Retry 429s with exponential backoff
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -30,7 +31,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 // TT API FETCH
 // =============================================================================
 
-function fetchTT(path) {
+function fetchTTRaw(path) {
   return new Promise((resolve, reject) => {
     const url = new URL(TT_BASE + path);
     const opts = {
@@ -41,15 +42,29 @@ function fetchTT(path) {
     https.get(opts, (res) => {
       let body = '';
       res.on('data', (chunk) => body += chunk);
-      res.on('end', () => {
-        if (res.statusCode >= 400) {
-          return reject(new Error(`API ${res.statusCode}: ${path}`));
-        }
-        try { resolve(JSON.parse(body)); }
-        catch (e) { reject(new Error(`JSON parse failed: ${path}`)); }
-      });
+      res.on('end', () => resolve({ statusCode: res.statusCode, body }));
     }).on('error', reject);
   });
+}
+
+async function fetchTT(path) {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const r = await fetchTTRaw(path);
+    if (r.statusCode === 429) {
+      if (attempt < MAX_RETRIES) {
+        const backoff = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+        console.warn(`[RATE-LIMIT] 429 on ${path}, retrying in ${backoff / 1000}s (attempt ${attempt + 1}/${MAX_RETRIES})`);
+        await sleep(backoff);
+        continue;
+      }
+      throw new Error(`API 429 (rate limited after retries): ${path}`);
+    }
+    if (r.statusCode >= 400) {
+      throw new Error(`API ${r.statusCode}: ${path}`);
+    }
+    try { return JSON.parse(r.body); }
+    catch (e) { throw new Error(`JSON parse failed: ${path}`); }
+  }
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
