@@ -97,13 +97,15 @@
        Tab Navigation
        ============================================================ -->
   <nav class="tab-nav" role="tablist" aria-label="Dashboard sections">
-    <button class="tab-btn active" data-tab="revenue"      role="tab" aria-label="Revenue tab"                   aria-selected="true">Revenue <span class="tab-badge">5</span></button>
+    <button class="tab-btn active" data-tab="revenue"      role="tab" aria-label="Revenue tab"                   aria-selected="true">Revenue <span class="tab-badge">6</span></button>
     <button class="tab-btn"        data-tab="valuation"     role="tab" aria-label="Revenue vs Valuation tab"      aria-selected="false">Revenue vs Valuation <span class="tab-badge">4</span></button>
     <button class="tab-btn"        data-tab="retention"     role="tab" aria-label="Retention and Seasonality tab" aria-selected="false">Retention &amp; Seasonality <span class="tab-badge">4</span></button>
     <button class="tab-btn"        data-tab="ltv"           role="tab" aria-label="LTV and Incentives tab"        aria-selected="false">LTV &amp; Incentives <span class="tab-badge">4</span></button>
     <button class="tab-btn"        data-tab="margins"       role="tab" aria-label="Margins and Valuation tab"     aria-selected="false">Margins &amp; Valuation <span class="tab-badge">4</span></button>
     <button class="tab-btn"        data-tab="compare"       role="tab" aria-label="Protocol comparison tab"        aria-selected="false">Compare</button>
     <button class="tab-btn"        data-tab="screener"      role="tab" aria-label="Protocol screener tab"          aria-selected="false">Screener</button>
+    <button class="tab-btn"        data-tab="financials"    role="tab" aria-label="Financial statements tab"         aria-selected="false">Financials</button>
+    <button class="tab-btn"        data-tab="sectors"       role="tab" aria-label="Sector analytics tab"            aria-selected="false">Sectors</button>
   </nav>
 
   <!-- ============================================================
@@ -175,6 +177,14 @@
             <h3>Monthly Revenue Time Series</h3>
           </div>
           <div id="chart-monthly-revenue" class="chart-container" role="img" aria-label="Monthly revenue time series line chart"></div>
+        </div>
+
+        <!-- Row 5: Revenue Momentum Signals — full width -->
+        <div class="chart-panel span-2">
+          <div class="panel-header">
+            <h3>Revenue Momentum Signals</h3>
+          </div>
+          <div id="chart-momentum-signals" class="chart-container" role="img" aria-label="Revenue momentum signals heatmap"></div>
         </div>
 
       </div>
@@ -500,10 +510,137 @@
               <th data-col="grossMargin">Gross Margin</th>
               <th data-col="netMargin">Net Margin</th>
               <th data-col="consistency">Consistency</th>
+              <th data-col="mom1">MoM</th>
+              <th data-col="signal">Signal</th>
             </tr>
           </thead>
           <tbody></tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- =================== Sector Analytics =================== -->
+    <section id="tab-sectors" class="tab-content" role="tabpanel" aria-label="Sector analytics">
+
+      <div class="kpi-row">
+        <div class="kpi-card" id="kpi-sector-total-revenue">
+          <div class="kpi-label">Total Revenue (All Sectors)</div>
+          <div class="kpi-value">&mdash;</div>
+        </div>
+        <div class="kpi-card" id="kpi-sector-fastest-growing">
+          <div class="kpi-label">Fastest Growing Sector</div>
+          <div class="kpi-value">&mdash;</div>
+        </div>
+        <div class="kpi-card" id="kpi-sector-highest-margin">
+          <div class="kpi-label">Highest Margin Sector</div>
+          <div class="kpi-value">&mdash;</div>
+        </div>
+        <div class="kpi-card" id="kpi-sector-total-protocols">
+          <div class="kpi-label">Total Protocols</div>
+          <div class="kpi-value">&mdash;</div>
+        </div>
+      </div>
+
+      <div class="chart-grid">
+
+        <!-- Revenue by Sector (stacked bar, full width) -->
+        <div class="chart-panel span-2">
+          <div class="panel-header">
+            <h3>Revenue by Sector (Quarterly)</h3>
+          </div>
+          <div id="chart-sector-revenue-quarterly" class="chart-container" role="img" aria-label="Quarterly revenue stacked by sector"></div>
+        </div>
+
+        <!-- Sector Revenue Share (pie/donut) -->
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>Sector Revenue Share</h3>
+          </div>
+          <div id="chart-sector-revenue-share" class="chart-container" role="img" aria-label="Sector revenue share pie chart"></div>
+        </div>
+
+        <!-- Sector Growth Rates -->
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>Sector Growth Rates</h3>
+          </div>
+          <div id="chart-sector-growth" class="chart-container" role="img" aria-label="Sector month over month growth bar chart"></div>
+        </div>
+
+        <!-- Sector Margins (grouped bar) -->
+        <div class="chart-panel span-2">
+          <div class="panel-header">
+            <h3>Sector Margins</h3>
+          </div>
+          <div id="chart-sector-margins" class="chart-container" role="img" aria-label="Sector gross and net margin grouped bar chart"></div>
+        </div>
+
+        <!-- Sector Summary Table (full width) -->
+        <div class="chart-panel span-2">
+          <div class="panel-header">
+            <h3>Sector Summary</h3>
+          </div>
+          <div class="table-wrapper">
+            <table id="table-sector-summary" class="data-table" role="table" aria-label="Sector summary table">
+              <thead>
+                <tr>
+                  <th data-col="sector">Sector</th>
+                  <th data-col="count"># Protocols</th>
+                  <th data-col="totalRevenue">Total Revenue</th>
+                  <th data-col="avgRevenue">Avg Revenue</th>
+                  <th data-col="totalTvl">Total TVL</th>
+                  <th data-col="avgPs">Avg P/S</th>
+                  <th data-col="avgGrossMargin">Avg Gross Margin</th>
+                  <th data-col="avgNetMargin">Avg Net Margin</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =================== Financials (P&L) =================== -->
+    <section id="tab-financials" class="tab-content" role="tabpanel" aria-label="Financial statements">
+
+      <!-- Protocol selector and period toggle -->
+      <div class="financials-controls">
+        <label for="financials-protocol-select">Protocol</label>
+        <select id="financials-protocol-select" aria-label="Select protocol for financial statements"></select>
+        <div class="financials-period-toggle">
+          <button id="fin-period-monthly" class="active">Monthly</button>
+          <button id="fin-period-quarterly">Quarterly</button>
+        </div>
+      </div>
+
+      <div class="chart-grid">
+
+        <!-- Income Statement Table (full width) -->
+        <div class="chart-panel span-2">
+          <div class="panel-header">
+            <h3>Income Statement</h3>
+          </div>
+          <div class="table-wrapper" id="financials-table-wrap"></div>
+        </div>
+
+        <!-- Waterfall / Bridge Chart -->
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>P&amp;L Waterfall (Latest Period)</h3>
+          </div>
+          <div id="chart-financials-waterfall" class="chart-container" role="img" aria-label="P&L waterfall bridge chart"></div>
+        </div>
+
+        <!-- Revenue vs Expenses Area Chart -->
+        <div class="chart-panel">
+          <div class="panel-header">
+            <h3>Revenue vs Expenses</h3>
+          </div>
+          <div id="chart-financials-area" class="chart-container" role="img" aria-label="Revenue versus expenses area chart"></div>
+        </div>
+
       </div>
     </section>
 

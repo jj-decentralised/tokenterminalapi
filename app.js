@@ -202,6 +202,12 @@ function renderActiveTab() {
       case 'screener':
         renderScreenerTab();
         break;
+      case 'financials':
+        renderFinancialsTab();
+        break;
+      case 'sectors':
+        renderSectorsTab();
+        break;
       default:
         renderRevenueTab();
         break;

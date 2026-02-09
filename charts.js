@@ -200,6 +200,78 @@ function _collectTop(n) {
   });
 }
 
+/**
+ * Compute momentum signals for a protocol based on its monthly data.
+ * Returns: { mom1: MoM%, mom3: 3-month growth%, streak: consecutive up/down months,
+ *            signal: 'strong-up'|'up'|'neutral'|'down'|'strong-down',
+ *            signalColor: CSS color, signalLabel: display text }
+ */
+function computeMomentum(monthly) {
+  var result = { mom1: 0, mom3: 0, streak: 0, signal: 'neutral',
+    signalColor: 'var(--text-muted)', signalLabel: 'Neutral' };
+  if (!monthly || monthly.length < 2) return result;
+
+  var latest = monthly[monthly.length - 1];
+  var prev   = monthly[monthly.length - 2];
+
+  /* mom1: MoM growth */
+  if (prev.revenue > 0) {
+    result.mom1 = (latest.revenue - prev.revenue) / prev.revenue;
+  }
+
+  /* mom3: 3-month growth */
+  if (monthly.length >= 4) {
+    var prev3 = monthly[monthly.length - 4];
+    if (prev3.revenue > 0) {
+      result.mom3 = (latest.revenue - prev3.revenue) / prev3.revenue;
+    }
+  }
+
+  /* streak: consecutive months of positive or negative MoM growth from latest backwards */
+  var streak = 0;
+  for (var i = monthly.length - 1; i >= 1; i--) {
+    var curRev  = monthly[i].revenue;
+    var prevRev = monthly[i - 1].revenue;
+    var diff = curRev - prevRev;
+    if (i === monthly.length - 1) {
+      /* First iteration — set direction */
+      if (diff > 0) { streak = 1; }
+      else if (diff < 0) { streak = -1; }
+      else { break; }
+    } else {
+      if (diff > 0 && streak > 0) { streak++; }
+      else if (diff < 0 && streak < 0) { streak--; }
+      else { break; }
+    }
+  }
+  result.streak = streak;
+
+  /* signal classification */
+  if (result.mom1 > 0.15 && result.mom3 > 0.30 && streak >= 3) {
+    result.signal = 'strong-up';
+    result.signalColor = 'var(--accent-teal)';
+    result.signalLabel = 'Strong Up';
+  } else if (result.mom1 < -0.15 && result.mom3 < -0.30 && streak <= -3) {
+    result.signal = 'strong-down';
+    result.signalColor = 'var(--accent-red)';
+    result.signalLabel = 'Strong Down';
+  } else if (result.mom1 > 0 && result.mom3 > 0) {
+    result.signal = 'up';
+    result.signalColor = '#4a9eff';
+    result.signalLabel = 'Up';
+  } else if (result.mom1 < 0 && result.mom3 < 0) {
+    result.signal = 'down';
+    result.signalColor = 'var(--accent-orange)';
+    result.signalLabel = 'Down';
+  } else {
+    result.signal = 'neutral';
+    result.signalColor = 'var(--text-muted)';
+    result.signalLabel = 'Neutral';
+  }
+
+  return result;
+}
+
 /** Average retention months from cohort matrix */
 function _retMonths(cohorts) {
   if (!cohorts || cohorts.length === 0) return 1;
@@ -264,6 +336,7 @@ function renderRevenueTab() {
   _revenueConsistency(top25);
   _revenueDecomposition(all);
   _revenueTimeSeries(top25);
+  _revenueMomentum(top25);
 }
 
 /* ----- Quarterly Revenue (span-2, FIRST panel) ----- */
@@ -447,6 +520,51 @@ function _revenueTimeSeries(all) {
     xaxis: { type: 'category' },
     legend: { orientation: 'h', y: -0.2, x: 0.5, xanchor: 'center', font: { size: 10 } }
   }));
+}
+
+/* ----- Revenue Momentum Signals (horizontal bar chart by 3-month growth) ----- */
+function _revenueMomentum(all) {
+  var wd = all.filter(function (d) { return d.mo.length >= 4; });
+  if (wd.length === 0) { emptyState('chart-momentum-signals'); return; }
+
+  /* Compute momentum for each protocol and sort by mom3 */
+  var items = wd.map(function (d) {
+    var m = computeMomentum(d.mo);
+    return { name: d.p.name, mom3: m.mom3, signal: m.signal, signalColor: m.signalColor };
+  });
+  items.sort(function (a, b) { return b.mom3 - a.mom3; });
+
+  /* Build horizontal bar chart: mom3 (3-month revenue growth) per protocol */
+  var names = items.map(function (d) { return d.name; });
+  var vals  = items.map(function (d) { return d.mom3 * 100; });
+
+  /* Color bars by signal */
+  var signalColorMap = {
+    'strong-up': 'rgba(74,246,195,0.8)',
+    'up': 'rgba(74,158,255,0.8)',
+    'neutral': 'rgba(100,100,100,0.5)',
+    'down': 'rgba(251,139,30,0.8)',
+    'strong-down': 'rgba(255,90,84,0.8)'
+  };
+  var colors = items.map(function (d) { return signalColorMap[d.signal] || 'rgba(100,100,100,0.5)'; });
+
+  safeReact('chart-momentum-signals', [{
+    y: names,
+    x: vals,
+    type: 'bar',
+    orientation: 'h',
+    marker: { color: colors },
+    hovertemplate: '%{y}<br>3-Mo Growth: %{x:.1f}%<extra></extra>'
+  }], layoutWith({
+    margin: { t: 24, r: 24, b: 48, l: 120 },
+    xaxis: { title: '3-Month Revenue Growth (%)', tickformat: '.0f', ticksuffix: '%', zeroline: true, zerolinecolor: 'rgba(255,255,255,0.2)', zerolinewidth: 2 },
+    yaxis: { autorange: 'reversed', type: 'category' },
+    showlegend: false,
+    height: Math.max(300, items.length * 28 + 80)
+  }));
+
+  addTooltip('chart-momentum-signals',
+    '3-month revenue growth per protocol. Bar color reflects momentum signal: green=up, blue=moderate up, orange=down, red=strong down.');
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -1319,6 +1437,7 @@ function renderScreenerTab() {
     var last = mo.length > 0 ? mo[mo.length - 1] : null;
     var prev = mo.length > 1 ? mo[mo.length - 2] : null;
     var revGrowth = (last && prev && prev.revenue > 0) ? (last.revenue - prev.revenue) / prev.revenue : null;
+    var momentum = computeMomentum(mo);
 
     return {
       p: p,
@@ -1334,7 +1453,11 @@ function renderScreenerTab() {
       dau: last ? last.dau : 0,
       grossMargin: last ? last.grossMargin : 0,
       netMargin: last ? last.netMargin : 0,
-      consistency: p.consistency || 0
+      consistency: p.consistency || 0,
+      mom1: momentum.mom1,
+      signal: momentum.signal,
+      signalLabel: momentum.signalLabel,
+      signalColor: momentum.signalColor
     };
   });
 
@@ -1363,6 +1486,9 @@ function renderScreenerTab() {
     h += '<td class="' + gmCls + '">' + fmtPct(r.grossMargin) + '</td>';
     h += '<td class="' + nmCls + '">' + fmtPct(r.netMargin) + '</td>';
     h += '<td>' + r.consistency.toFixed(3) + '</td>';
+    var momCls = r.mom1 >= 0 ? 'positive' : 'negative';
+    h += '<td class="' + momCls + '">' + fmtPct(r.mom1) + '</td>';
+    h += '<td><span class="signal-badge ' + r.signal + '">' + r.signalLabel + '</span></td>';
     h += '</tr>';
   });
   tbody.innerHTML = h;
@@ -1383,5 +1509,612 @@ function renderScreenerTab() {
     csvBtn.onclick = function () {
       exportTableCSV(document.getElementById('table-screener'), 'protocol-screener');
     };
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   10.  renderSectorsTab — Sector Analytics
+   ══════════════════════════════════════════════════════════════════════════ */
+
+function renderSectorsTab() {
+  /* ── Gather all protocols (ignore sector filter so we see all sectors) ── */
+  var allProtocols = STATE.data ? Object.values(STATE.data) : [];
+
+  /* Respect chain filter only */
+  if (STATE.chain !== 'all') {
+    allProtocols = allProtocols.filter(function (p) {
+      return p.chains && p.chains.indexOf(STATE.chain) !== -1;
+    });
+  }
+
+  if (allProtocols.length === 0) {
+    ['chart-sector-revenue-quarterly', 'chart-sector-revenue-share',
+     'chart-sector-growth', 'chart-sector-margins'].forEach(emptyState);
+    return;
+  }
+
+  /* ── Build per-sector aggregations ───────────────────────────────────── */
+  var sectorData = {};
+
+  allProtocols.forEach(function (p) {
+    var sec = p.sector || 'other';
+    if (!sectorData[sec]) {
+      sectorData[sec] = {
+        protocols: [],
+        totalRevenue: 0,
+        totalTvl: 0,
+        psValues: [],
+        grossMargins: [],
+        netMargins: [],
+        latestRevenue: 0,
+        prevRevenue: 0
+      };
+    }
+    var sd = sectorData[sec];
+    sd.protocols.push(p);
+
+    var mo = getFilteredMonthly(p);
+    var last = mo.length > 0 ? mo[mo.length - 1] : null;
+    var prev = mo.length > 1 ? mo[mo.length - 2] : null;
+
+    if (last) {
+      sd.totalRevenue += last.revenue;
+      sd.totalTvl += (last.tvl || 0);
+      sd.latestRevenue += last.revenue;
+      if (last.psRatio > 0) sd.psValues.push(last.psRatio);
+      sd.grossMargins.push({ val: last.grossMargin, w: last.revenue });
+      sd.netMargins.push({ val: last.netMargin, w: last.revenue });
+    }
+    if (prev) {
+      sd.prevRevenue += prev.revenue;
+    }
+  });
+
+  /* Compute derived metrics per sector */
+  var sectors = Object.keys(sectorData);
+  var sectorMetrics = [];
+
+  sectors.forEach(function (sec) {
+    var sd = sectorData[sec];
+    var count = sd.protocols.length;
+    var avgRev = count > 0 ? sd.totalRevenue / count : 0;
+
+    var wGM = weightedAvg(
+      sd.grossMargins,
+      function (d) { return d.val; },
+      function (d) { return d.w; }
+    );
+
+    var wNM = weightedAvg(
+      sd.netMargins,
+      function (d) { return d.val; },
+      function (d) { return d.w; }
+    );
+
+    var avgPS = sd.psValues.length > 0
+      ? sd.psValues.reduce(function (s, v) { return s + v; }, 0) / sd.psValues.length
+      : 0;
+
+    var momGrowth = sd.prevRevenue > 0
+      ? (sd.latestRevenue - sd.prevRevenue) / sd.prevRevenue
+      : null;
+
+    sectorMetrics.push({
+      sector: sec,
+      label: SECTOR_LABELS[sec] || sec,
+      color: SECTOR_COLORS[sec] || '#888',
+      count: count,
+      totalRevenue: sd.totalRevenue,
+      avgRevenue: avgRev,
+      totalTvl: sd.totalTvl,
+      avgPS: avgPS,
+      avgGrossMargin: wGM,
+      avgNetMargin: wNM,
+      momGrowth: momGrowth,
+      protocols: sd.protocols
+    });
+  });
+
+  /* Sort by total revenue descending */
+  sectorMetrics.sort(function (a, b) { return b.totalRevenue - a.totalRevenue; });
+
+  /* ── KPIs ─────────────────────────────────────────────────────────────── */
+  var totalRev = sectorMetrics.reduce(function (s, d) { return s + d.totalRevenue; }, 0);
+  var totalProto = sectorMetrics.reduce(function (s, d) { return s + d.count; }, 0);
+
+  var fastestGrowing = sectorMetrics.filter(function (d) { return d.momGrowth !== null; })
+    .reduce(function (best, d) {
+      return (!best || d.momGrowth > best.momGrowth) ? d : best;
+    }, null);
+
+  var highestMargin = sectorMetrics.reduce(function (best, d) {
+    return (!best || d.avgGrossMargin > best.avgGrossMargin) ? d : best;
+  }, null);
+
+  setKpi('kpi-sector-total-revenue', 'Total Revenue (All Sectors)', fmtUSD(totalRev));
+  setKpi('kpi-sector-fastest-growing', 'Fastest Growing Sector',
+    fastestGrowing ? fastestGrowing.label : '\u2014',
+    fastestGrowing ? { text: fmtPct(fastestGrowing.momGrowth) + ' MoM', cls: changeClass(fastestGrowing.momGrowth) } : null);
+  setKpi('kpi-sector-highest-margin', 'Highest Margin Sector',
+    highestMargin ? highestMargin.label : '\u2014',
+    highestMargin ? { text: fmtPct(highestMargin.avgGrossMargin) + ' gross', cls: 'positive' } : null);
+  setKpi('kpi-sector-total-protocols', 'Total Protocols', String(totalProto));
+
+  /* ── Tooltips ─────────────────────────────────────────────────────────── */
+  addTooltip('chart-sector-revenue-quarterly',
+    'Quarterly revenue aggregated by sector. Each sector bar sums all protocol revenues in that sector.');
+  addTooltip('chart-sector-revenue-share',
+    'Latest month revenue share by sector as a percentage of total.');
+  addTooltip('chart-sector-growth',
+    'Month-over-month revenue growth by sector.');
+  addTooltip('chart-sector-margins',
+    'Revenue-weighted average gross and net margin by sector.');
+
+  /* ── Charts ───────────────────────────────────────────────────────────── */
+  _sectorRevenueQuarterly(allProtocols, sectorMetrics);
+  _sectorRevenueShare(sectorMetrics);
+  _sectorGrowthRates(sectorMetrics);
+  _sectorMarginsChart(sectorMetrics);
+  _sectorSummaryTable(sectorMetrics);
+}
+
+/* ----- Quarterly Revenue by Sector (stacked bar, span-2) ----- */
+function _sectorRevenueQuarterly(allProtocols, sectorMetrics) {
+  var qBySector = {};
+  var qSet = {};
+
+  allProtocols.forEach(function (p) {
+    var sec = p.sector || 'other';
+    var mo = getFilteredMonthly(p);
+    var quarterly = buildQuarterly(mo);
+
+    quarterly.forEach(function (qr) {
+      qSet[qr.quarter] = true;
+      if (!qBySector[sec]) qBySector[sec] = {};
+      if (!qBySector[sec][qr.quarter]) qBySector[sec][qr.quarter] = 0;
+      qBySector[sec][qr.quarter] += qr.revenue;
+    });
+  });
+
+  var sortedQ = Object.keys(qSet).sort(_qsort);
+  if (sortedQ.length === 0) { emptyState('chart-sector-revenue-quarterly'); return; }
+
+  var traces = sectorMetrics.map(function (sm) {
+    var qData = qBySector[sm.sector] || {};
+    return {
+      x: sortedQ,
+      y: sortedQ.map(function (q) { return qData[q] || 0; }),
+      name: sm.label,
+      type: 'bar',
+      marker: { color: sm.color },
+      hovertemplate: sm.label + '<br>%{x}: %{y:$,.0f}<extra></extra>'
+    };
+  });
+
+  safeReact('chart-sector-revenue-quarterly', traces, layoutWith({
+    barmode: 'stack',
+    xaxis: { categoryorder: 'array', categoryarray: sortedQ },
+    yaxis: { tickformat: '$,.0s', nticks: 6 },
+    legend: { orientation: 'h', y: -0.2, x: 0.5, xanchor: 'center', font: { size: 10 } }
+  }));
+}
+
+/* ----- Sector Revenue Share (pie/donut) ----- */
+function _sectorRevenueShare(sectorMetrics) {
+  var withRev = sectorMetrics.filter(function (d) { return d.totalRevenue > 0; });
+  if (withRev.length === 0) { emptyState('chart-sector-revenue-share'); return; }
+
+  safeReact('chart-sector-revenue-share', [{
+    labels: withRev.map(function (d) { return d.label; }),
+    values: withRev.map(function (d) { return d.totalRevenue; }),
+    name: 'Revenue Share',
+    type: 'pie',
+    marker: { colors: withRev.map(function (d) { return d.color; }) },
+    textinfo: 'label+percent',
+    textposition: 'inside',
+    hovertemplate: '%{label}<br>Revenue: %{value:$,.0f}<br>%{percent}<extra></extra>',
+    hole: 0.35
+  }], layoutWith({
+    showlegend: false,
+    margin: { t: 20, r: 20, b: 20, l: 20 }
+  }));
+}
+
+/* ----- Sector Growth Rates (bar chart) ----- */
+function _sectorGrowthRates(sectorMetrics) {
+  var withGrowth = sectorMetrics.filter(function (d) { return d.momGrowth !== null; });
+  if (withGrowth.length === 0) { emptyState('chart-sector-growth'); return; }
+
+  withGrowth.sort(function (a, b) { return b.momGrowth - a.momGrowth; });
+
+  safeReact('chart-sector-growth', [{
+    x: withGrowth.map(function (d) { return d.label; }),
+    y: withGrowth.map(function (d) { return d.momGrowth * 100; }),
+    name: 'MoM Growth',
+    type: 'bar',
+    marker: { color: withGrowth.map(function (d) {
+      return d.momGrowth >= 0 ? d.color : 'rgba(255,90,84,0.7)';
+    })},
+    hovertemplate: '%{x}: %{y:.1f}%<extra></extra>'
+  }], layoutWith({
+    yaxis: { title: 'MoM Growth', tickformat: '.0f', ticksuffix: '%' },
+    xaxis: { tickangle: -45 },
+    showlegend: false
+  }));
+}
+
+/* ----- Sector Margins (grouped bar: gross + net) ----- */
+function _sectorMarginsChart(sectorMetrics) {
+  var withData = sectorMetrics.filter(function (d) { return d.count > 0; });
+  if (withData.length === 0) { emptyState('chart-sector-margins'); return; }
+
+  safeReact('chart-sector-margins', [
+    {
+      x: withData.map(function (d) { return d.label; }),
+      y: withData.map(function (d) { return _clampM(d.avgGrossMargin); }),
+      name: 'Gross Margin',
+      type: 'bar',
+      marker: { color: 'rgba(74,158,255,0.7)' },
+      hovertemplate: '%{x}: %{y:.1f}%<extra>Gross Margin</extra>'
+    },
+    {
+      x: withData.map(function (d) { return d.label; }),
+      y: withData.map(function (d) { return _clampM(d.avgNetMargin); }),
+      name: 'Net Margin',
+      type: 'bar',
+      marker: { color: withData.map(function (d) {
+        return d.avgNetMargin >= 0 ? 'rgba(74,246,195,0.7)' : 'rgba(255,90,84,0.7)';
+      })},
+      hovertemplate: '%{x}: %{y:.1f}%<extra>Net Margin</extra>'
+    }
+  ], layoutWith({
+    barmode: 'group',
+    yaxis: { title: 'Margin', tickformat: '.0f', ticksuffix: '%', range: [-300, 100] },
+    xaxis: { tickangle: -45 },
+    legend: { orientation: 'h', y: -0.25, x: 0.5, xanchor: 'center', font: { size: 11 } }
+  }));
+}
+
+/* ----- Sector Summary Table ----- */
+function _sectorSummaryTable(sectorMetrics) {
+  var tbody = document.querySelector('#table-sector-summary tbody');
+  if (!tbody) return;
+
+  var h = '';
+  sectorMetrics.forEach(function (d) {
+    var gmCls = d.avgGrossMargin >= 0 ? 'positive' : 'negative';
+    var nmCls = d.avgNetMargin >= 0 ? 'positive' : 'negative';
+
+    h += '<tr>';
+    h += '<td style="font-weight:500"><span class="sector-dot" style="background:' + d.color + '"></span>' + d.label + '</td>';
+    h += '<td>' + d.count + '</td>';
+    h += '<td>' + fmtUSD(d.totalRevenue) + '</td>';
+    h += '<td>' + fmtUSD(d.avgRevenue) + '</td>';
+    h += '<td>' + fmtUSD(d.totalTvl) + '</td>';
+    h += '<td>' + fmtX(d.avgPS) + '</td>';
+    h += '<td class="' + gmCls + '">' + fmtPct(d.avgGrossMargin) + '</td>';
+    h += '<td class="' + nmCls + '">' + fmtPct(d.avgNetMargin) + '</td>';
+    h += '</tr>';
+  });
+  tbody.innerHTML = h;
+
+  addExportBtn('table-sector-summary', 'sector-summary');
+  makeSortable(document.getElementById('table-sector-summary'));
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   11.  renderFinancialsTab — Income Statement / P&L for individual protocols
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Format a value as negative USD with parentheses: ($1.2M) */
+function fmtUSDNeg(n) {
+  if (n === undefined || n === null || isNaN(n)) return '\u2014';
+  var abs = Math.abs(n);
+  var formatted;
+  if (abs >= 1e12) formatted = '$' + (abs / 1e12).toFixed(1) + 'T';
+  else if (abs >= 1e9) formatted = '$' + (abs / 1e9).toFixed(1) + 'B';
+  else if (abs >= 1e6) formatted = '$' + (abs / 1e6).toFixed(1) + 'M';
+  else if (abs >= 1e3) formatted = '$' + (abs / 1e3).toFixed(0) + 'K';
+  else formatted = '$' + abs.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  return '(' + formatted + ')';
+}
+
+/** Format margin as percentage for the P&L table */
+function _fmtMarginPct(n) {
+  if (n === undefined || n === null || isNaN(n)) return '\u2014';
+  var val = n * 100;
+  if (Math.abs(val) > 999) return val > 0 ? '>999%' : '<-999%';
+  return val.toFixed(1) + '%';
+}
+
+function renderFinancialsTab() {
+  var select = document.getElementById('financials-protocol-select');
+  var tableWrap = document.getElementById('financials-table-wrap');
+  var waterfallEl = document.getElementById('chart-financials-waterfall');
+  var areaEl = document.getElementById('chart-financials-area');
+
+  /* ── Gather and sort protocols by revenue ─────────────────────── */
+  var protocols = getFilteredProtocols();
+  var sorted = protocols.slice().sort(function (a, b) {
+    var ar = 0, br = 0;
+    var am = getFilteredMonthly(a), bm = getFilteredMonthly(b);
+    if (am.length) ar = am[am.length - 1].revenue;
+    if (bm.length) br = bm[bm.length - 1].revenue;
+    return br - ar;
+  });
+
+  /* ── Determine selected protocol ──────────────────────────────── */
+  var sel = STATE.financialsProtocol;
+  if (!sel || !sorted.find(function (p) { return p.name === sel; })) {
+    sel = sorted.length > 0 ? sorted[0].name : null;
+    STATE.financialsProtocol = sel;
+  }
+
+  /* ── Populate dropdown ────────────────────────────────────────── */
+  if (select) {
+    select.innerHTML = '';
+    sorted.forEach(function (p) {
+      var o = document.createElement('option');
+      o.value = p.name;
+      o.textContent = p.name;
+      if (p.name === sel) o.selected = true;
+      select.appendChild(o);
+    });
+    select.onchange = function () {
+      STATE.financialsProtocol = select.value;
+      renderFinancialsTab();
+    };
+  }
+
+  /* ── Period toggle (monthly / quarterly) ──────────────────────── */
+  if (!STATE.financialsPeriod) STATE.financialsPeriod = 'monthly';
+  var btnMonthly = document.getElementById('fin-period-monthly');
+  var btnQuarterly = document.getElementById('fin-period-quarterly');
+  if (btnMonthly && btnQuarterly) {
+    btnMonthly.classList.toggle('active', STATE.financialsPeriod === 'monthly');
+    btnQuarterly.classList.toggle('active', STATE.financialsPeriod === 'quarterly');
+    btnMonthly.onclick = function () {
+      STATE.financialsPeriod = 'monthly';
+      renderFinancialsTab();
+    };
+    btnQuarterly.onclick = function () {
+      STATE.financialsPeriod = 'quarterly';
+      renderFinancialsTab();
+    };
+  }
+
+  if (!sel) {
+    if (tableWrap) tableWrap.innerHTML = '<div class="empty-state">No protocol data available</div>';
+    if (waterfallEl) emptyState('chart-financials-waterfall');
+    if (areaEl) emptyState('chart-financials-area');
+    return;
+  }
+
+  var sp = sorted.find(function (p) { return p.name === sel; });
+  if (!sp) {
+    if (tableWrap) tableWrap.innerHTML = '<div class="empty-state">Protocol not found</div>';
+    if (waterfallEl) emptyState('chart-financials-waterfall');
+    if (areaEl) emptyState('chart-financials-area');
+    return;
+  }
+
+  var mo = getFilteredMonthly(sp);
+  if (mo.length === 0) {
+    if (tableWrap) tableWrap.innerHTML = '<div class="empty-state">No monthly data for ' + sel + '</div>';
+    if (waterfallEl) emptyState('chart-financials-waterfall');
+    if (areaEl) emptyState('chart-financials-area');
+    return;
+  }
+
+  /* ── Build data rows depending on period toggle ───────────────── */
+  var dataRows = [];
+  var colHeaders = [];
+
+  if (STATE.financialsPeriod === 'quarterly') {
+    var q = getFilteredQuarterly(sp);
+    var sliced = q.slice(-8);
+    colHeaders = sliced.map(function (qr) { return qr.quarter; });
+    sliced.forEach(function (qr) {
+      var grossProfit = qr.revenue - qr.costOfRevenue;
+      var grossMargin = qr.revenue > 0 ? grossProfit / qr.revenue : 0;
+      var netMargin = qr.revenue > 0 ? qr.earnings / qr.revenue : 0;
+      dataRows.push({
+        fees: qr.fees,
+        supplySideFees: qr.fees - qr.revenue,
+        revenue: qr.revenue,
+        costOfRevenue: qr.costOfRevenue,
+        grossProfit: grossProfit,
+        grossMargin: grossMargin,
+        tokenIncentives: qr.tokenIncentives,
+        earnings: qr.earnings,
+        netMargin: netMargin
+      });
+    });
+  } else {
+    var slicedMo = mo.slice(-12);
+    colHeaders = slicedMo.map(function (m) { return m.month; });
+    slicedMo.forEach(function (m) {
+      var grossProfit = m.revenue - (m.costOfRevenue || 0);
+      dataRows.push({
+        fees: m.fees,
+        supplySideFees: m.supplySideFees || (m.fees - m.revenue),
+        revenue: m.revenue,
+        costOfRevenue: m.costOfRevenue || 0,
+        grossProfit: grossProfit,
+        grossMargin: m.grossMargin || 0,
+        tokenIncentives: m.tokenIncentives || 0,
+        earnings: m.earnings || 0,
+        netMargin: m.netMargin || 0
+      });
+    });
+  }
+
+  /* ── Build Income Statement Table ─────────────────────────────── */
+  if (tableWrap && dataRows.length > 0) {
+    var h = '<table class="financials-table"><thead><tr><th>Line Item</th>';
+    colHeaders.forEach(function (col) {
+      h += '<th>' + col + '</th>';
+    });
+    h += '</tr></thead><tbody>';
+
+    // Row definitions: [label, key, cssClass, formatter]
+    var lineItems = [
+      { label: 'Total Fees',          key: 'fees',             cls: '',           fmt: 'usd' },
+      { label: '\u2013 Supply-Side Fees', key: 'supplySideFees', cls: 'deduction',  fmt: 'neg' },
+      { label: '= Revenue (Protocol)',key: 'revenue',          cls: 'subtotal',   fmt: 'usd' },
+      { label: '\u2013 Cost of Revenue', key: 'costOfRevenue',  cls: 'deduction',  fmt: 'neg' },
+      { label: '= Gross Profit',      key: 'grossProfit',      cls: 'subtotal',   fmt: 'usd' },
+      { label: 'Gross Margin',        key: 'grossMargin',      cls: 'margin-row', fmt: 'pct' },
+      { label: '\u2013 Token Incentives', key: 'tokenIncentives', cls: 'deduction', fmt: 'neg' },
+      { label: '= Earnings (Net Income)', key: 'earnings',     cls: 'subtotal',   fmt: 'usd' },
+      { label: 'Net Margin',          key: 'netMargin',        cls: 'margin-row', fmt: 'pct' }
+    ];
+
+    lineItems.forEach(function (item) {
+      h += '<tr class="' + item.cls + '"><td>' + item.label + '</td>';
+      dataRows.forEach(function (row) {
+        var val = row[item.key];
+        var cell;
+        if (item.fmt === 'neg') {
+          cell = (val !== undefined && val !== null && !isNaN(val) && val !== 0) ? fmtUSDNeg(val) : '\u2014';
+        } else if (item.fmt === 'pct') {
+          cell = _fmtMarginPct(val);
+        } else {
+          cell = fmtUSD(val);
+        }
+        h += '<td>' + cell + '</td>';
+      });
+      h += '</tr>';
+    });
+
+    h += '</tbody></table>';
+    tableWrap.innerHTML = h;
+  }
+
+  /* ── Waterfall chart for latest period ────────────────────────── */
+  if (waterfallEl && dataRows.length > 0) {
+    var latest = dataRows[dataRows.length - 1];
+    var wfLabels = ['Fees', '- Supply Side', 'Revenue', '- Cost of Rev', 'Gross Profit', '- Incentives', 'Earnings'];
+    var wfValues = [
+      latest.fees,
+      -latest.supplySideFees,
+      latest.revenue,
+      -latest.costOfRevenue,
+      latest.grossProfit,
+      -latest.tokenIncentives,
+      latest.earnings
+    ];
+
+    // Simulated waterfall: invisible base bars + colored visible bars
+    var baseBars = [];
+    var visibleBars = [];
+    var barColors = [];
+    var running = 0;
+
+    for (var wi = 0; wi < wfLabels.length; wi++) {
+      var wVal = wfValues[wi];
+      if (wi === 0) {
+        // First bar: starts from 0
+        baseBars.push(0);
+        visibleBars.push(wVal);
+        barColors.push('#4a9eff');
+        running = wVal;
+      } else if (wi === 2 || wi === 4 || wi === 6) {
+        // Subtotal bars: start from 0, show the subtotal value
+        baseBars.push(0);
+        visibleBars.push(wVal);
+        barColors.push(wVal >= 0 ? '#4af6c3' : '#ff5a54');
+        running = wVal;
+      } else {
+        // Deduction bars: negative values subtracted from running total
+        var deductionAmt = Math.abs(wVal);
+        var newRunning = running - deductionAmt;
+        baseBars.push(Math.max(0, newRunning));
+        visibleBars.push(deductionAmt);
+        barColors.push('#ff5a54');
+        running = newRunning;
+      }
+    }
+
+    var wfTraces = [
+      {
+        x: wfLabels,
+        y: baseBars,
+        name: 'Base',
+        type: 'bar',
+        marker: { color: 'rgba(0,0,0,0)' },
+        hoverinfo: 'skip',
+        showlegend: false
+      },
+      {
+        x: wfLabels,
+        y: visibleBars,
+        name: 'Amount',
+        type: 'bar',
+        marker: { color: barColors },
+        hovertemplate: '%{x}: %{y:$,.0f}<extra></extra>'
+      }
+    ];
+
+    safeReact('chart-financials-waterfall', wfTraces, layoutWith({
+      barmode: 'stack',
+      showlegend: false,
+      yaxis: { tickformat: '$,.0s', nticks: 6 },
+      xaxis: { tickangle: -30 },
+      margin: { t: 32, r: 24, b: 72, l: 64 }
+    }));
+  }
+
+  /* ── Revenue vs Expenses Area Chart ───────────────────────────── */
+  if (areaEl && dataRows.length > 0) {
+    var areaTraces = [
+      {
+        x: colHeaders,
+        y: dataRows.map(function (d) { return d.revenue; }),
+        name: 'Revenue',
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: '#4a9eff', width: 2 },
+        hovertemplate: 'Revenue: %{y:$,.0f}<extra></extra>'
+      },
+      {
+        x: colHeaders,
+        y: dataRows.map(function (d) { return d.costOfRevenue; }),
+        name: 'Cost of Revenue',
+        type: 'scatter',
+        mode: 'lines',
+        fill: 'tozeroy',
+        fillcolor: 'rgba(255,90,84,0.15)',
+        line: { color: '#ff5a54', width: 1.5 },
+        hovertemplate: 'Cost of Rev: %{y:$,.0f}<extra></extra>'
+      },
+      {
+        x: colHeaders,
+        y: dataRows.map(function (d) { return d.tokenIncentives; }),
+        name: 'Token Incentives',
+        type: 'scatter',
+        mode: 'lines',
+        fill: 'tonexty',
+        fillcolor: 'rgba(251,139,30,0.15)',
+        line: { color: '#fb8b1e', width: 1.5 },
+        hovertemplate: 'Incentives: %{y:$,.0f}<extra></extra>'
+      },
+      {
+        x: colHeaders,
+        y: dataRows.map(function (d) { return d.earnings; }),
+        name: 'Earnings',
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { color: '#4af6c3', width: 2 },
+        marker: { size: 4 },
+        hovertemplate: 'Earnings: %{y:$,.0f}<extra></extra>'
+      }
+    ];
+
+    safeReact('chart-financials-area', areaTraces, layoutWith({
+      yaxis: { tickformat: '$,.0s', nticks: 6 },
+      xaxis: { type: 'category' },
+      legend: { orientation: 'h', y: -0.2, x: 0.5, xanchor: 'center', font: { size: 10 } }
+    }));
   }
 }
