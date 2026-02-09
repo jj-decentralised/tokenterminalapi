@@ -270,7 +270,12 @@ async function handleDbLoad(res) {
     `);
 
     if (protocolsRes.rows.length === 0) {
-      jsonResponse(res, null);
+      console.log('[db-load] No protocols found in database, falling through to TT API proxy');
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      });
+      res.end(JSON.stringify(null));
       return;
     }
 
@@ -339,7 +344,31 @@ async function handleDbLoad(res) {
       };
     }
 
-    jsonResponse(res, data);
+    // 5. Filter out protocols with no monthly metrics data
+    var filteredData = {};
+    var filteredCount = 0;
+    for (var key in data) {
+      if (data[key].monthly && data[key].monthly.length > 0) {
+        filteredData[key] = data[key];
+        filteredCount++;
+      }
+    }
+
+    // 6. If too few protocols have data, fall through to TT API proxy
+    //    (don't set X-Data-Source header so frontend returns null and tries proxy)
+    var MIN_PROTOCOLS_THRESHOLD = 10;
+    if (filteredCount < MIN_PROTOCOLS_THRESHOLD) {
+      console.log('[db-load] Only ' + filteredCount + ' protocols have monthly data (min ' + MIN_PROTOCOLS_THRESHOLD + '), falling through to TT API proxy');
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      });
+      res.end(JSON.stringify(null));
+      return;
+    }
+
+    console.log('[db-load] Returning ' + filteredCount + ' protocols with data (filtered from ' + protocolsRes.rows.length + ' total)');
+    jsonResponse(res, filteredData);
   } catch (e) {
     console.error('[db-load] Error:', e.message);
     jsonError(res, 'Database query failed: ' + e.message);
@@ -613,7 +642,7 @@ async function runSync() {
     await sleep(15000);
 
     console.log('[sync] Fetching metrics...');
-    let okCount = 0, failCount = 0;
+    let okCount = 0, emptyCount = 0, failCount = 0;
     const protocolIds = toSync.map(p => (p.project_id || p.id || '').toLowerCase()).filter(Boolean);
     let consecutiveRateLimits = 0;
 
@@ -638,7 +667,7 @@ async function runSync() {
         if (r.status !== 'fulfilled') { failCount++; continue; }
         const { pid, data } = r.value;
         const rows = data.data || (Array.isArray(data) ? data : []);
-        if (rows.length === 0) { failCount++; continue; }
+        if (rows.length === 0) { emptyCount++; continue; }
 
         // Group by month
         const byMonth = {};
@@ -699,7 +728,7 @@ async function runSync() {
 
       const done = Math.min(i + BATCH_SIZE, protocolIds.length);
       if (done % 50 === 0 || done === protocolIds.length) {
-        console.log(`[sync] Progress: ${done}/${protocolIds.length} (${okCount} ok, ${failCount} failed)`);
+        console.log(`[sync] Progress: ${done}/${protocolIds.length} (${okCount} ok, ${emptyCount} empty, ${failCount} failed)`);
       }
 
       // Adaptive backoff: if any request in this batch was rate-limited, cool down
@@ -719,7 +748,7 @@ async function runSync() {
     await computeProtocolLatest();
 
     lastSyncTime = new Date();
-    console.log(`[sync] Complete: ${okCount} ok, ${failCount} failed, ${((Date.now() - start) / 1000).toFixed(0)}s`);
+    console.log(`[sync] Complete: ${okCount} ok, ${emptyCount} empty (no data), ${failCount} failed, ${((Date.now() - start) / 1000).toFixed(0)}s`);
 
   } catch (e) {
     console.error('[sync] Fatal error:', e.message);
