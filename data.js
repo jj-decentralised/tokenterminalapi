@@ -724,10 +724,28 @@ function transformAPIData(projectId, config, metricsData) {
       byMonth[month][metricId] = value;
     }
 
-    // Handle flat field format
+    // Handle flat field format (TT API v2 returns metrics as columns)
+    // Flow metrics: sum daily values to get monthly totals
     ['revenue','fees','earnings','token_incentives','cost_of_revenue',
-     'supply_side_fees','tvl','price','fully_diluted_market_cap',
-     'circulating_market_cap','daily_active_users','token_trading_volume'
+     'supply_side_fees','token_trading_volume'
+    ].forEach(function (key) {
+      if (row[key] !== undefined) {
+        var v = parseFloat(row[key]);
+        if (!isNaN(v)) byMonth[month][key] = (byMonth[month][key] || 0) + v;
+      }
+    });
+    // Also check hyphenated variants for flow metrics
+    var flowAliases = {'token-incentives':'token_incentives','cost-of-revenue':'cost_of_revenue','supply-side-fees':'supply_side_fees'};
+    Object.keys(flowAliases).forEach(function (hyphenated) {
+      if (row[hyphenated] !== undefined) {
+        var v = parseFloat(row[hyphenated]);
+        if (!isNaN(v)) byMonth[month][flowAliases[hyphenated]] = (byMonth[month][flowAliases[hyphenated]] || 0) + v;
+      }
+    });
+    // Stock metrics: take latest daily value
+    ['tvl','price','fully_diluted_market_cap','fully-diluted-market-cap',
+     'circulating_market_cap','circulating-market-cap',
+     'daily_active_users','daily-active-users'
     ].forEach(function (key) {
       if (row[key] !== undefined) {
         var v = parseFloat(row[key]);

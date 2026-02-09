@@ -563,11 +563,19 @@ const METRIC_IDS = 'fees,revenue,earnings,token-incentives,cost-of-revenue,suppl
 
 const METRIC_NORMALIZE = {
   'fees': 'fees', 'revenue': 'revenue', 'earnings': 'earnings',
-  'token-incentives': 'token_incentives', 'cost-of-revenue': 'cost_of_revenue',
-  'supply-side-fees': 'supply_side_fees', 'tvl': 'tvl', 'price': 'price',
-  'fully-diluted-market-cap': 'fdv', 'circulating-market-cap': 'circ_mcap',
-  'daily-active-users': 'dau',
+  'token-incentives': 'token_incentives', 'token_incentives': 'token_incentives',
+  'cost-of-revenue': 'cost_of_revenue', 'cost_of_revenue': 'cost_of_revenue',
+  'supply-side-fees': 'supply_side_fees', 'supply_side_fees': 'supply_side_fees',
+  'tvl': 'tvl', 'price': 'price',
+  'fully-diluted-market-cap': 'fdv', 'fully_diluted_market_cap': 'fdv',
+  'circulating-market-cap': 'circ_mcap', 'circulating_market_cap': 'circ_mcap',
+  'daily-active-users': 'dau', 'daily_active_users': 'dau',
 };
+
+// Flow metrics: sum daily values to get monthly totals
+// Stock metrics: take latest daily value in the month
+const FLOW_METRICS = new Set(['fees', 'revenue', 'earnings', 'token_incentives', 'cost_of_revenue', 'supply_side_fees']);
+
 
 async function runSync() {
   if (syncInProgress) {
@@ -712,17 +720,28 @@ async function runSync() {
         const rows = data.data || (Array.isArray(data) ? data : []);
         if (rows.length === 0) { emptyCount++; continue; }
 
-        // Group by month
+        // Group daily data by month
+        // TT API v2 returns wide format: each row has metrics as columns
         const byMonth = {};
+        const byMonthCount = {}; // track row count per month for averaging
         for (const row of rows) {
           const month = (row.timestamp || row.date || '').slice(0, 7);
-          const metricId = row.metric_id;
-          const value = parseFloat(row.value);
-          if (!month || !metricId || isNaN(value)) continue;
-          const normalizedMetric = METRIC_NORMALIZE[metricId];
-          if (!normalizedMetric) continue;
-          if (!byMonth[month]) byMonth[month] = {};
-          byMonth[month][normalizedMetric] = value;
+          if (!month) continue;
+          if (!byMonth[month]) { byMonth[month] = {}; byMonthCount[month] = 0; }
+          byMonthCount[month]++;
+
+          // Extract each metric column from the row
+          for (const [apiField, dbField] of Object.entries(METRIC_NORMALIZE)) {
+            const value = parseFloat(row[apiField]);
+            if (isNaN(value)) continue;
+            if (FLOW_METRICS.has(dbField)) {
+              // Flow metrics: sum daily values for the month
+              byMonth[month][dbField] = (byMonth[month][dbField] || 0) + value;
+            } else {
+              // Stock metrics (tvl, fdv, price, circ_mcap, dau): take latest value
+              byMonth[month][dbField] = value;
+            }
+          }
         }
 
         // Compute derived metrics and insert
