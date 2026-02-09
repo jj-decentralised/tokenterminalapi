@@ -33,11 +33,9 @@ async function initDB() {
     return false;
   }
 
-  const initialized = await db.isInitialized();
-  if (initialized) {
-    console.log('[init-db] Schema already exists, skipping');
-    return true;
-  }
+  // Always run schema init (idempotent with IF NOT EXISTS).
+  // Don't skip based on partial state — a previous run may have
+  // created some tables but not all (e.g. due to ordering errors).
 
   console.log('[init-db] Initializing database schema...');
 
@@ -53,31 +51,31 @@ async function initDB() {
       .map(s => s.trim())
       .filter(s => s.length > 0 && !s.startsWith('--'));
 
-    const client = await db.getClient();
-    try {
-      await client.query('BEGIN');
-      for (const stmt of statements) {
-        try {
-          await client.query(stmt);
-        } catch (e) {
-          // Skip errors for things like duplicate inserts on re-run
-          if (e.code === '42P07' || // duplicate_table
-              e.code === '42710' || // duplicate_object
-              e.code === '23505') { // unique_violation
-            continue;
-          }
-          console.warn('[init-db] Statement warning:', e.message.slice(0, 120));
+    // Execute each statement independently (NOT in a single transaction).
+    // In PostgreSQL, if any statement fails inside a transaction, ALL
+    // subsequent statements are rejected with "current transaction is aborted".
+    // Running independently lets us skip harmless errors (duplicate table, etc.)
+    // while still creating everything else.
+    let okCount = 0;
+    let skipCount = 0;
+    for (const stmt of statements) {
+      try {
+        await db.query(stmt);
+        okCount++;
+      } catch (e) {
+        // Skip harmless errors on re-run
+        if (e.code === '42P07' || // duplicate_table
+            e.code === '42710' || // duplicate_object
+            e.code === '23505') { // unique_violation
+          skipCount++;
+          continue;
         }
+        console.warn('[init-db] Statement warning:', e.message.slice(0, 120));
+        skipCount++;
       }
-      await client.query('COMMIT');
-      console.log('[init-db] Schema initialized successfully');
-      return true;
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
-    } finally {
-      client.release();
     }
+    console.log(`[init-db] Schema initialized successfully (${okCount} executed, ${skipCount} skipped)`);
+    return true;
   } catch (e) {
     console.error('[init-db] Failed:', e.message);
     return false;

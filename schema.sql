@@ -10,8 +10,27 @@
 -- =============================================================================
 
 -- =============================================================================
--- 1. CORE ENTITIES
+-- 1. CORE ENTITIES (order matters: sectors & chains before protocols)
 -- =============================================================================
+
+-- Sectors: Normalized sector taxonomy (must be created BEFORE protocols)
+CREATE TABLE sectors (
+    id              TEXT PRIMARY KEY,           -- e.g. 'lending', 'dex', 'l1'
+    label           TEXT NOT NULL,              -- Display name: 'Lending', 'DEX'
+    color           TEXT NOT NULL,              -- Hex color: '#4a9eff'
+    tt_sector_ids   TEXT[] DEFAULT '{}',        -- TT API sector IDs that map here
+    protocol_count  INTEGER DEFAULT 0,          -- Cached count
+    sort_order      INTEGER DEFAULT 999,        -- Display order
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Chains: Blockchain networks (must be created BEFORE chain_metrics)
+CREATE TABLE chains (
+    slug            TEXT PRIMARY KEY,           -- e.g. 'ethereum', 'solana'
+    name            TEXT NOT NULL,              -- Display: 'Ethereum', 'Solana'
+    chain_type      TEXT,                       -- 'l1', 'l2', 'sidechain'
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
 
 -- Protocols: The master list of all discovered projects
 CREATE TABLE protocols (
@@ -34,25 +53,6 @@ CREATE TABLE protocols (
 CREATE INDEX idx_protocols_sector ON protocols(sector_id);
 CREATE INDEX idx_protocols_chains ON protocols USING GIN(chains);
 CREATE INDEX idx_protocols_updated ON protocols(updated_at);
-
--- Sectors: Normalized sector taxonomy
-CREATE TABLE sectors (
-    id              TEXT PRIMARY KEY,           -- e.g. 'lending', 'dex', 'l1'
-    label           TEXT NOT NULL,              -- Display name: 'Lending', 'DEX'
-    color           TEXT NOT NULL,              -- Hex color: '#4a9eff'
-    tt_sector_ids   TEXT[] DEFAULT '{}',        -- TT API sector IDs that map here
-    protocol_count  INTEGER DEFAULT 0,          -- Cached count
-    sort_order      INTEGER DEFAULT 999,        -- Display order
-    created_at      TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Chains: Blockchain networks
-CREATE TABLE chains (
-    slug            TEXT PRIMARY KEY,           -- e.g. 'ethereum', 'solana'
-    name            TEXT NOT NULL,              -- Display: 'Ethereum', 'Solana'
-    chain_type      TEXT,                       -- 'l1', 'l2', 'sidechain'
-    created_at      TIMESTAMPTZ DEFAULT NOW()
-);
 
 -- =============================================================================
 -- 2. TIME-SERIES METRICS (EAV pattern for flexibility)
