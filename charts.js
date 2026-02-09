@@ -416,7 +416,8 @@ function _revenueTakeRateHeatmap(all) {
 /* ----- Revenue Consistency (height: 350) ----- */
 function _revenueConsistency(all) {
   var sorted = all.filter(function (d) { return d.p.consistency !== undefined; })
-    .sort(function (a, b) { return (b.p.consistency || 0) - (a.p.consistency || 0); });
+    .sort(function (a, b) { return (b.p.consistency || 0) - (a.p.consistency || 0); })
+    .slice(0, 15);
   if (sorted.length === 0) { emptyState('chart-revenue-consistency'); return; }
 
   safeReact('chart-revenue-consistency', [{
@@ -536,7 +537,7 @@ function _revenueTimeSeries(all) {
 
 /* ----- Revenue Momentum Signals (horizontal bar chart by 3-month growth) ----- */
 function _revenueMomentum(all) {
-  var wd = all.filter(function (d) { return d.mo.length >= 4; });
+  var wd = all.filter(function (d) { return d.mo.length >= 2; });
   if (wd.length === 0) { emptyState('chart-momentum-signals'); return; }
 
   /* Compute momentum for each protocol and sort by mom3 */
@@ -1351,7 +1352,8 @@ function _marginsTrends(all) {
       y: d.mo.map(function (m) { return _clampM(m.netMargin); }),
       name: d.p.name + ' (Net)',
       type: 'scatter', mode: 'lines',
-      line: { color: _sc(d.p), width: 1, dash: 'dash' },
+      line: { color: _sc(d.p), width: 1.5, dash: 'dot' },
+      opacity: 0.45,
       hovertemplate: d.p.name + '<br>%{x}: %{y:.1f}%<extra>Net</extra>',
       showlegend: false
     });
@@ -1359,7 +1361,12 @@ function _marginsTrends(all) {
 
   safeReact('chart-margin-trends', traces, layoutWith({
     yaxis: { title: 'Margin', tickformat: '.0f', ticksuffix: '%', range: [-300, 100] },
-    xaxis: { type: 'category' }
+    xaxis: { type: 'category' },
+    annotations: [{
+      text: 'Solid = Gross Margin · Dotted = Net Margin',
+      xref: 'paper', yref: 'paper', x: 0.5, y: 1.05,
+      showarrow: false, font: { size: 10, color: '#888' }
+    }]
   }));
 }
 
@@ -1602,20 +1609,20 @@ function renderScreenerTab() {
       p: p,
       name: p.name,
       sector: p.sector,
-      revenue: last ? last.revenue : 0,
+      revenue: last ? last.revenue : null,
       revGrowth: revGrowth,
-      fees: last ? last.fees : 0,
-      takeRate: last ? last.takeRate : 0,
-      fdv: last ? last.fdv : 0,
-      circMcap: last ? last.circMcap : 0,
-      ps: last ? last.psRatio : 0,
-      tvl: last ? last.tvl : 0,
-      dau: last ? last.dau : 0,
-      grossMargin: last ? last.grossMargin : 0,
-      netMargin: last ? last.netMargin : 0,
+      fees: last ? last.fees : null,
+      takeRate: last ? last.takeRate : null,
+      fdv: last ? last.fdv : null,
+      circMcap: last ? last.circMcap : null,
+      ps: last ? last.psRatio : null,
+      tvl: last ? last.tvl : null,
+      dau: last ? last.dau : null,
+      grossMargin: last ? last.grossMargin : null,
+      netMargin: last ? last.netMargin : null,
       consistency: p.consistency || 0,
       stickyIndex: p.stickyIndex || 0,
-      revenueYield: last ? last.revenueYield : 0,
+      revenueYield: last ? last.revenueYield : null,
       mom1: momentum.mom1,
       mom3: momentum.mom3,
       signal: momentum.signal,
@@ -1632,8 +1639,8 @@ function renderScreenerTab() {
     var color = SECTOR_COLORS[r.sector] || '#6b7280';
     var sLabel = SECTOR_LABELS[r.sector] || r.sector;
     var growthCls = r.revGrowth !== null ? (r.revGrowth >= 0 ? 'positive' : 'negative') : '';
-    var gmCls = r.grossMargin >= 0 ? 'positive' : 'negative';
-    var nmCls = r.netMargin >= 0 ? 'positive' : 'negative';
+    var gmCls = r.grossMargin !== null ? (r.grossMargin >= 0 ? 'positive' : 'negative') : '';
+    var nmCls = r.netMargin !== null ? (r.netMargin >= 0 ? 'positive' : 'negative') : '';
 
     h += '<tr>';
     h += '<td class="protocol-link" data-pid="' + r.p.id + '" style="font-weight:500;cursor:pointer;color:var(--accent-blue)">' + r.name + '</td>';
@@ -1650,11 +1657,11 @@ function renderScreenerTab() {
     h += '<td>' + fmtNum(r.dau) + '</td>';
     h += '<td class="' + gmCls + '">' + fmtPct(r.grossMargin) + '</td>';
     h += '<td class="' + nmCls + '">' + fmtPct(r.netMargin) + '</td>';
-    h += '<td>' + r.consistency.toFixed(3) + '</td>';
-    h += '<td>' + r.stickyIndex.toFixed(3) + '</td>';
-    var momCls = r.mom1 >= 0 ? 'positive' : 'negative';
+    h += '<td>' + (r.consistency != null ? r.consistency.toFixed(3) : '\u2014') + '</td>';
+    h += '<td>' + (r.stickyIndex != null ? r.stickyIndex.toFixed(3) : '\u2014') + '</td>';
+    var momCls = r.mom1 !== null ? (r.mom1 >= 0 ? 'positive' : 'negative') : '';
     h += '<td class="' + momCls + '">' + fmtPct(r.mom1) + '</td>';
-    var mom3Cls = r.mom3 >= 0 ? 'positive' : 'negative';
+    var mom3Cls = r.mom3 !== null ? (r.mom3 >= 0 ? 'positive' : 'negative') : '';
     h += '<td class="' + mom3Cls + '">' + fmtPct(r.mom3) + '</td>';
     h += '<td><span class="signal-badge ' + r.signal + '">' + r.signalLabel + '</span></td>';
     h += '</tr>';

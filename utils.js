@@ -107,6 +107,16 @@ function exportTableCSV(tableEl, filename) {
   a.download = (filename || 'export') + '.csv';
   a.click();
   URL.revokeObjectURL(url);
+  _showToast('Exported ' + (filename || 'data') + '.csv');
+}
+
+function _showToast(msg) {
+  var el = document.createElement('div');
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg-panel-alt,#1e293b);color:var(--text-primary,#e8e8e8);padding:10px 20px;border-radius:8px;font-size:13px;z-index:9999;opacity:0;transition:opacity 0.3s;border:1px solid var(--border,#334155)';
+  document.body.appendChild(el);
+  requestAnimationFrame(function() { el.style.opacity = '1'; });
+  setTimeout(function() { el.style.opacity = '0'; setTimeout(function() { el.remove(); }, 300); }, 2000);
 }
 
 // ===================================================================

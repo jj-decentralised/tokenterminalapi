@@ -12,6 +12,7 @@ const STATE = {
   decompProtocol: null, // selected protocol for decomposition chart
   retSector: 'all',    // sector filter for retention charts
   retCount: 10,        // protocol count for retention charts (5, 10, or 0=all)
+  financialsProtocol: null, // selected protocol for financials tab
 };
 
 // ===================================================================
@@ -110,6 +111,7 @@ function encodeStateToURL() {
   if (STATE.decompProtocol) params.set('protocol', STATE.decompProtocol);
   if (STATE.retSector !== 'all') params.set('retSector', STATE.retSector);
   if (STATE.retCount !== 10) params.set('retCount', STATE.retCount);
+  if (STATE.financialsProtocol) params.set('finProtocol', STATE.financialsProtocol);
   const hash = params.toString();
   window.history.replaceState(null, '', hash ? '#' + hash : window.location.pathname);
 }
@@ -125,4 +127,5 @@ function decodeStateFromURL() {
   if (params.has('protocol')) STATE.decompProtocol = params.get('protocol');
   if (params.has('retSector')) STATE.retSector = params.get('retSector');
   if (params.has('retCount')) STATE.retCount = parseInt(params.get('retCount')) || 10;
+  if (params.has('finProtocol')) STATE.financialsProtocol = params.get('finProtocol');
 }

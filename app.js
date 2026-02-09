@@ -356,7 +356,7 @@ function buildSectorUI() {
  */
 function populateCompareDropdowns() {
   if (!STATE.data) return;
-  var sorted = Object.values(STATE.data).sort(function (a, b) {
+  var sorted = getFilteredProtocols().sort(function (a, b) {
     var aR = a.monthly && a.monthly.length > 0 ? a.monthly[a.monthly.length - 1].revenue : 0;
     var bR = b.monthly && b.monthly.length > 0 ? b.monthly[b.monthly.length - 1].revenue : 0;
     return bR - aR;
