@@ -216,21 +216,21 @@
 
         <div class="chart-panel">
           <div class="panel-header">
-            <h3>P/S vs Revenue Scatter</h3>
+            <h3>Revenue vs TVL</h3>
           </div>
           <div id="chart-ps-scatter" class="chart-container" role="img" aria-label="Price to sales versus revenue scatter plot"></div>
         </div>
 
         <div class="chart-panel">
           <div class="panel-header">
-            <h3>P/S Ratio Ranking</h3>
+            <h3>Capital Efficiency Ranking</h3>
           </div>
           <div id="chart-ps-ranking" class="chart-container" role="img" aria-label="P/S ratio ranking bar chart"></div>
         </div>
 
         <div class="chart-panel">
           <div class="panel-header">
-            <h3>P/S Ratio Trends</h3>
+            <h3>Capital Efficiency Trends</h3>
           </div>
           <div id="chart-ps-trends" class="chart-container" role="img" aria-label="P/S ratio trends over time"></div>
         </div>
@@ -244,11 +244,11 @@
               <thead>
                 <tr>
                   <th>Protocol</th>
-                  <th>FDV</th>
-                  <th>Circ. MCap</th>
                   <th>Revenue (Ann.)</th>
-                  <th>P/S Ratio</th>
-                  <th>Rev Yield</th>
+                  <th>TVL</th>
+                  <th>Rev/TVL</th>
+                  <th>Price</th>
+                  <th>Take Rate</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -353,14 +353,14 @@
 
         <div class="chart-panel">
           <div class="panel-header">
-            <h3>LTV / CAC Ratio</h3>
+            <h3>Incentive Efficiency</h3>
           </div>
           <div id="chart-ltv-cac" class="chart-container" role="img" aria-label="LTV to CAC ratio comparison chart"></div>
         </div>
 
         <div class="chart-panel">
           <div class="panel-header">
-            <h3>ARPU by Protocol</h3>
+            <h3>Earnings by Protocol</h3>
           </div>
           <div id="chart-arpu" class="chart-container" role="img" aria-label="Average revenue per user by protocol"></div>
         </div>
@@ -374,16 +374,17 @@
 
         <div class="chart-panel">
           <div class="panel-header">
-            <h3>LTV &amp; Incentives Summary</h3>
+            <h3>Earnings &amp; Incentives Summary</h3>
           </div>
           <div class="table-wrapper">
             <table id="table-ltv" role="table" aria-label="LTV and incentives summary table">
               <thead>
                 <tr>
                   <th>Protocol</th>
-                  <th>Est. LTV</th>
-                  <th>Est. CAC</th>
-                  <th>LTV / CAC</th>
+                  <th>Revenue (Mo.)</th>
+                  <th>Incentives</th>
+                  <th>Inc. Ratio</th>
+                  <th>Earnings</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -393,7 +394,7 @@
 
       </div>
 
-      <p class="footnote">&dagger; LTV estimated as (monthly ARPU) &times; avg retention months. CAC estimated as trailing 3-month avg incentives / estimated new users.</p>
+      <p class="footnote">&dagger; Incentive Ratio = revenue &divide; token incentives. Values above 1.0x indicate revenue exceeds incentive spending. Earnings = revenue &minus; cost of revenue &minus; token incentives.</p>
     </section>
 
     <!-- ================= Margins & Valuation ================= -->

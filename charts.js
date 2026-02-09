@@ -587,62 +587,63 @@ function renderValuationTab() {
   var all = _collect();
   var top25 = _collectTop(25);
   var wd  = all.filter(function (d) { return d.last !== null; });
-  /* Exclude fdv===0 for valuation metrics */
-  var wf  = wd.filter(function (d) { return d.last.fdv > 0; });
-  var wfTop = top25.filter(function (d) { return d.last !== null && d.last.fdv > 0; });
+  /* Use TVL > 0 for capital efficiency metrics (FDV not available from API) */
+  var wt  = wd.filter(function (d) { return d.last.tvl > 0 && d.last.revenue > 0; });
+  var wtTop = top25.filter(function (d) { return d.last !== null && d.last.tvl > 0 && d.last.revenue > 0; });
 
-  /* ── KPIs (all protocols) ──────────────────────────────────────── */
-  var avgPS = weightedAvg(
-    wf.map(function (d) { return d.last; }),
-    function (m) { return m.psRatio; },
-    function (m) { return m.revenue; }
+  /* Compute capital efficiency = annualized revenue / TVL */
+  wt.forEach(function (d) {
+    d._capEff = safeDiv(d.last.revenue * 12, d.last.tvl, 0);
+  });
+  wtTop.forEach(function (d) {
+    d._capEff = safeDiv(d.last.revenue * 12, d.last.tvl, 0);
+  });
+
+  /* ── KPIs ──────────────────────────────────────────────────────── */
+  var avgCapEff = weightedAvg(
+    wt, function (d) { return d._capEff; },
+    function (d) { return d.last.revenue; }
   );
 
-  var psVals = wf.map(function (d) { return d.last.psRatio; }).sort(function (a,b) { return a-b; });
-  var medPS  = psVals.length > 0 ? psVals[Math.floor(psVals.length / 2)] : 0;
+  var capEffVals = wt.map(function (d) { return d._capEff; }).sort(function (a,b) { return a-b; });
+  var medCapEff = capEffVals.length > 0 ? capEffVals[Math.floor(capEffVals.length / 2)] : 0;
 
-  /* Cheapest P/S — exclude psRatio===0 */
-  var withPS   = wf.filter(function (d) { return d.last.psRatio > 0; });
-  var cheapest = withPS.reduce(function (b, d) {
-    return (!b || d.last.psRatio < b.last.psRatio) ? d : b;
+  var mostEff = wt.reduce(function (b, d) {
+    return (!b || d._capEff > b._capEff) ? d : b;
   }, null);
-
-  var priciest = wf.reduce(function (b, d) {
-    return (!b || d.last.psRatio > b.last.psRatio) ? d : b;
+  var leastEff = wt.filter(function (d) { return d._capEff > 0; }).reduce(function (b, d) {
+    return (!b || d._capEff < b._capEff) ? d : b;
   }, null);
 
   setKpi('kpi-avg-ps',
-    'Avg P/S Ratio <i class="info-tip" data-tip="Price-to-Sales: Fully diluted valuation &divide; annualized revenue">i</i>',
-    fmtX(avgPS));
-  setKpi('kpi-median-ps', 'Median P/S', fmtX(medPS));
-  // Revenue yield: annualized revenue / FDV (inverse of P/S)
-  var avgYield = wf.length > 0 ? wf.reduce(function (s, d) { return s + (d.last.revenueYield || 0); }, 0) / wf.length : 0;
-
-  setKpi('kpi-most-overvalued', 'Most Expensive (P/S)',
-    priciest ? priciest.p.name : '—',
-    priciest ? { text: fmtX(priciest.last.psRatio), cls: 'negative' } : null);
-  setKpi('kpi-most-undervalued', 'Avg Rev Yield <i class="info-tip" data-tip="Annualized revenue &divide; FDV. Higher = more revenue per dollar of valuation.">i</i>',
-    fmtPct(avgYield),
-    cheapest ? { text: 'Cheapest P/S: ' + cheapest.p.name + ' (' + fmtX(cheapest.last.psRatio) + ')', cls: 'positive' } : null);
+    'Avg Capital Efficiency <i class="info-tip" data-tip="Annualized revenue &divide; TVL. Higher = more revenue generated per dollar of locked value.">i</i>',
+    fmtPct(avgCapEff));
+  setKpi('kpi-median-ps', 'Median Cap. Efficiency', fmtPct(medCapEff));
+  setKpi('kpi-most-overvalued', 'Most Efficient',
+    mostEff ? mostEff.p.name : '—',
+    mostEff ? { text: fmtPct(mostEff._capEff), cls: 'positive' } : null);
+  setKpi('kpi-most-undervalued', 'Least Efficient',
+    leastEff ? leastEff.p.name : '—',
+    leastEff ? { text: fmtPct(leastEff._capEff), cls: 'negative' } : null);
 
   /* ── Tooltips ─────────────────────────────────────────────────────── */
   addTooltip('chart-ps-scatter',
-    'Price-to-Sales: Fully diluted valuation &divide; annualized revenue');
+    'Revenue vs TVL: Bubble size = monthly fees. Protocols above the diagonal generate more revenue per TVL dollar.');
   addTooltip('chart-ps-ranking',
-    'Price-to-Sales: Fully diluted valuation &divide; annualized revenue');
+    'Capital efficiency: annualized revenue &divide; TVL. Higher = more productive capital.');
 
-  /* ── Charts (scatter uses all; bars/lines use top 25) ──────────── */
-  _valPSScatter(wf);
-  _valPSRanking(wfTop);
-  _valPSTrends(top25);
-  _valTable(wf);
+  /* ── Charts ────────────────────────────────────────────────────── */
+  _valRevTVLScatter(wt);
+  _valCapEffRanking(wtTop);
+  _valCapEffTrends(top25);
+  _valTable(wt);
 }
 
-/* ----- P/S vs Revenue Scatter ----- */
-function _valPSScatter(wf) {
-  if (wf.length === 0) { emptyState('chart-ps-scatter'); return; }
+/* ----- Revenue vs TVL Scatter ----- */
+function _valRevTVLScatter(wt) {
+  if (wt.length === 0) { emptyState('chart-ps-scatter'); return; }
   var bySec = {};
-  wf.forEach(function (d) {
+  wt.forEach(function (d) {
     var s = d.p.sector;
     if (!bySec[s]) bySec[s] = [];
     bySec[s].push(d);
@@ -651,8 +652,8 @@ function _valPSScatter(wf) {
   var traces = Object.keys(bySec).map(function (sec) {
     var items = bySec[sec];
     return {
-      x: items.map(function (d) { return d.last.revenue * 12; }),
-      y: items.map(function (d) { return d.last.psRatio; }),
+      x: items.map(function (d) { return d.last.tvl; }),
+      y: items.map(function (d) { return d.last.revenue * 12; }),
       text: items.map(function (d) { return d.p.name; }),
       name: SECTOR_LABELS[sec] || sec,
       type: 'scatter', mode: 'markers+text',
@@ -661,75 +662,77 @@ function _valPSScatter(wf) {
       marker: {
         color: SECTOR_COLORS[sec] || '#888',
         size: items.map(function (d) {
-          return Math.max(8, Math.min(40, Math.sqrt(d.last.tvl || 0) / 1000));
+          return Math.max(8, Math.min(40, Math.sqrt(d.last.fees || 0) / 500));
         }),
         opacity: 0.8
       },
-      hovertemplate: '%{text}<br>Ann. Rev: %{x:$,.0f}<br>P/S: %{y:.1f}x<extra></extra>'
+      hovertemplate: '%{text}<br>TVL: %{x:$,.0f}<br>Ann. Rev: %{y:$,.0f}<br>Efficiency: ' +
+        items.map(function (d) { return fmtPct(d._capEff); }).join(',') + '<extra></extra>'
     };
   });
 
   safeReact('chart-ps-scatter', traces, layoutWith({
-    xaxis: { title: 'Annualized Revenue', tickformat: '$,.0s', type: 'log' },
-    yaxis: { title: 'P/S Ratio', tickformat: ',.0f', ticksuffix: 'x' }
+    xaxis: { title: 'Total Value Locked (TVL)', tickformat: '$,.0s', type: 'log' },
+    yaxis: { title: 'Annualized Revenue', tickformat: '$,.0s', type: 'log' }
   }));
 }
 
-/* ----- P/S Ranking Bar ----- */
-function _valPSRanking(wf) {
-  var sorted = wf.slice().sort(function (a,b) { return a.last.psRatio - b.last.psRatio; });
+/* ----- Capital Efficiency Ranking Bar ----- */
+function _valCapEffRanking(wt) {
+  var sorted = wt.filter(function (d) { return d._capEff > 0; })
+    .slice().sort(function (a,b) { return b._capEff - a._capEff; });
   if (sorted.length === 0) { emptyState('chart-ps-ranking'); return; }
 
   safeReact('chart-ps-ranking', [{
     x: sorted.map(function (d) { return d.p.name; }),
-    y: sorted.map(function (d) { return d.last.psRatio; }),
-    name: 'P/S Ratio',
+    y: sorted.map(function (d) { return d._capEff * 100; }),
+    name: 'Capital Efficiency',
     type: 'bar',
     marker: { color: sorted.map(function (d) { return _sc(d.p); }) },
-    hovertemplate: '%{x}: %{y:.1f}x<extra></extra>'
+    hovertemplate: '%{x}: %{y:.2f}%<extra></extra>'
   }], layoutWith({
-    yaxis: { title: 'P/S Ratio', tickformat: ',.0f', ticksuffix: 'x' },
+    yaxis: { title: 'Rev / TVL (%)', tickformat: ',.1f', ticksuffix: '%' },
     xaxis: { tickangle: -45 },
     showlegend: false
   }));
 }
 
-/* ----- P/S Time Series ----- */
-function _valPSTrends(all) {
+/* ----- Capital Efficiency Trends ----- */
+function _valCapEffTrends(all) {
   var wd = all.filter(function (d) { return d.mo.length > 0; });
   if (wd.length === 0) { emptyState('chart-ps-trends'); return; }
 
   var traces = wd.map(function (d) {
-    var valid = d.mo.filter(function (m) { return m.fdv > 0; });
+    var valid = d.mo.filter(function (m) { return m.tvl > 0 && m.revenue > 0; });
     return {
       x: valid.map(function (m) { return m.month; }),
-      y: valid.map(function (m) { return m.psRatio; }),
+      y: valid.map(function (m) { return safeDiv(m.revenue * 12, m.tvl, 0) * 100; }),
       name: d.p.name,
       type: 'scatter', mode: 'lines',
       line: { color: _sc(d.p), width: 2 },
-      hovertemplate: d.p.name + '<br>%{x}: %{y:.1f}x<extra></extra>'
+      hovertemplate: d.p.name + '<br>%{x}: %{y:.2f}%<extra></extra>'
     };
   });
 
   safeReact('chart-ps-trends', traces, layoutWith({
-    yaxis: { title: 'P/S Ratio', tickformat: ',.0f', ticksuffix: 'x' },
+    yaxis: { title: 'Rev / TVL (%)', tickformat: ',.1f', ticksuffix: '%' },
     xaxis: { type: 'category' }
   }));
 }
 
 /* ----- Valuation Summary Table ----- */
-function _valTable(wf) {
+function _valTable(wt) {
   var tbody = document.querySelector('#table-valuation tbody');
   if (!tbody) return;
-  var sorted = wf.slice().sort(function (a,b) { return a.last.psRatio - b.last.psRatio; });
+  var sorted = wt.slice().sort(function (a,b) { return (b._capEff||0) - (a._capEff||0); });
   var h = '';
   sorted.forEach(function (d) {
     h += '<tr><td class="protocol-link" data-pid="' + d.p.id + '">' + d.p.name + '</td>'
-       + '<td>' + fmtUSD(d.last.fdv) + '</td>'
-       + '<td>' + (d.last.circMcap > 0 ? fmtUSD(d.last.circMcap) : '\u2014') + '</td>'
        + '<td>' + fmtUSD(d.last.revenue * 12) + '</td>'
-       + '<td>' + fmtX(d.last.psRatio) + '</td>'
-       + '<td>' + (d.last.revenueYield > 0 ? fmtPct(d.last.revenueYield) : '\u2014') + '</td></tr>';
+       + '<td>' + fmtUSD(d.last.tvl) + '</td>'
+       + '<td>' + fmtPct(d._capEff) + '</td>'
+       + '<td>' + (d.last.price > 0 ? '$' + d.last.price.toFixed(2) : '\u2014') + '</td>'
+       + '<td>' + fmtPct(d.last.takeRate) + '</td></tr>';
   });
   tbody.innerHTML = h;
   tbody.querySelectorAll('.protocol-link').forEach(function (el) {
@@ -1062,58 +1065,41 @@ function renderLTVTab() {
   var all = _collect();
   var wd  = all.filter(function (d) { return d.last !== null && d.mo.length >= 3; });
 
-  /* ── Compute LTV, CAC, LTV/CAC per protocol ──────────────────────── */
+  /* ── Compute incentive efficiency per protocol ─────────────────── */
   wd.forEach(function (d) {
-    /* Monthly ARPU (already monthly, NOT annualized) */
-    var avgArpu = d.last.arpu || 0;
-    /* Average retention months from cohort data */
-    var retMo = _retMonths(d.p.cohorts);
-    /* LTV = monthlyARPU * retentionMonths */
-    d._ltv = avgArpu * retMo;
-
-    /* CAC = trailing-3-month avg incentives / trailing-3-month avg new users */
-    var l3 = d.mo.slice(-3);
-    var avgInc = l3.reduce(function (s,m) { return s + (m.tokenIncentives||0); }, 0) / l3.length;
-    var avgNU  = l3.reduce(function (s,m) { return s + _estNewUsers(m.dau, d.p.cohorts); }, 0) / l3.length;
-    d._cac = avgNU > 0 ? avgInc / avgNU : 0;
-    d._ltvCac = d._cac > 0 ? d._ltv / d._cac : 0;
-
-    /* Incentive ratio for table */
-    var lR = d.last.revenue, lI = d.last.tokenIncentives || 0;
-    if (lR === 0 && lI > 0) {
-      d._incStr = 'N/A';
-    } else {
-      d._incStr = fmtPct(safeDiv(lI, lR, 0));
-    }
+    var lR = d.last.revenue || 0;
+    var lI = d.last.tokenIncentives || 0;
+    /* Incentive ROI: revenue / incentives (how much rev per $1 spent) */
+    d._incROI = lI > 0 ? lR / lI : 0;
+    /* Net revenue after incentives */
+    d._netRev = lR - lI;
   });
 
   /* ── KPIs ─────────────────────────────────────────────────────────── */
-  var validLC = wd.filter(function (d) { return d._ltvCac > 0; });
-  var avgLC   = validLC.length > 0
-    ? validLC.reduce(function (s,d) { return s + d._ltvCac; }, 0) / validLC.length
-    : 0;
-  var bestLC = validLC.reduce(function (b,d) { return (!b || d._ltvCac > b._ltvCac) ? d : b; }, null);
+  var withInc = wd.filter(function (d) { return d._incROI > 0; });
+  var avgIncROI = withInc.length > 0
+    ? withInc.reduce(function (s, d) { return s + d._incROI; }, 0) / withInc.length : 0;
+  var bestIncROI = withInc.reduce(function (b, d) {
+    return (!b || d._incROI > b._incROI) ? d : b;
+  }, null);
 
-  var avgArpu = weightedAvg(
-    wd.map(function (d) { return d.last; }),
-    function (m) { return m.arpu; },
-    function (m) { return m.revenue; }
-  );
-
-  var totalInc = wd.reduce(function (s,d) {
-    return s + d.mo.reduce(function (ms,m) { return ms + (m.tokenIncentives||0); }, 0);
-  }, 0);
+  /* Avg earnings margin */
+  var wdEarn = wd.filter(function (d) { return d.last.revenue > 0; });
+  var avgEarnMargin = wdEarn.length > 0
+    ? wdEarn.reduce(function (s, d) { return s + safeDiv(d.last.earnings, d.last.revenue, 0); }, 0) / wdEarn.length : 0;
 
   /* Positive Earnings (Latest Month) */
   var posEarn = wd.filter(function (d) { return d.last.earnings > 0; }).length;
 
   setKpi('kpi-avg-ltv-cac',
-    'Avg LTV/CAC <i class="info-tip" data-tip="Estimated user lifetime value: monthly ARPU &times; average retention months">i</i>',
-    fmtX(avgLC));
-  setKpi('kpi-best-ltv-cac', 'Best LTV/CAC',
-    bestLC ? bestLC.p.name : '—',
-    bestLC ? { text: fmtX(bestLC._ltvCac), cls: 'positive' } : null);
-  setKpi('kpi-avg-arpu', 'Avg Monthly ARPU', fmtUSD(avgArpu));
+    'Avg Incentive ROI <i class="info-tip" data-tip="Revenue &divide; token incentives. Higher = more revenue per dollar of incentive spending.">i</i>',
+    avgIncROI > 0 ? fmtX(avgIncROI) : '—');
+  setKpi('kpi-best-ltv-cac', 'Best Incentive ROI',
+    bestIncROI ? bestIncROI.p.name : '—',
+    bestIncROI ? { text: fmtX(bestIncROI._incROI), cls: 'positive' } : null);
+  setKpi('kpi-avg-arpu',
+    'Avg Earnings Margin <i class="info-tip" data-tip="Earnings &divide; revenue. Positive = protocol is profitable after all costs.">i</i>',
+    fmtPct(avgEarnMargin));
   setKpi('kpi-total-incentives',
     'Positive Earnings (Latest Month)',
     String(posEarn) + ' / ' + wd.length,
@@ -1121,46 +1107,42 @@ function renderLTVTab() {
 
   /* ── Tooltips ─────────────────────────────────────────────────────── */
   addTooltip('chart-ltv-cac',
-    'Estimated customer acquisition cost: trailing 3-month avg incentives &divide; estimated new users');
-  addTooltip('chart-arpu', 'Average revenue per user (monthly) by protocol.');
+    'Incentive efficiency: revenue &divide; token incentives. Values above 1.0x mean revenue exceeds incentive spending.');
+  addTooltip('chart-arpu',
+    'Monthly earnings (revenue minus all costs) by protocol. Green = profitable, red = unprofitable.');
   addTooltip('chart-incentives',
     'Cumulative token incentive spending over time across all protocols.');
 
   /* ── Charts (top 25 for dense visuals, table uses all) ──────────── */
   var top25 = _collectTop(25);
   var wdTop = top25.filter(function (d) { return d.last !== null && d.mo.length >= 3; });
-  // Compute LTV for top-25 display subset
   wdTop.forEach(function (d) {
-    var avgArpu = d.last.arpu || 0;
-    var retMo = _retMonths(d.p.cohorts);
-    d._ltv = avgArpu * retMo;
-    var l3 = d.mo.slice(-3);
-    var avgInc = l3.reduce(function (s,m) { return s + (m.tokenIncentives||0); }, 0) / l3.length;
-    var avgNU  = l3.reduce(function (s,m) { return s + _estNewUsers(m.dau, d.p.cohorts); }, 0) / l3.length;
-    d._cac = avgNU > 0 ? avgInc / avgNU : 0;
-    d._ltvCac = d._cac > 0 ? d._ltv / d._cac : 0;
+    var lR = d.last.revenue || 0;
+    var lI = d.last.tokenIncentives || 0;
+    d._incROI = lI > 0 ? lR / lI : 0;
+    d._netRev = lR - lI;
   });
-  _ltvCACChart(wdTop);
-  _ltvARPUChart(wdTop);
+  _incEfficiencyChart(wdTop);
+  _earningsChart(wdTop);
   _ltvIncentivesChart(top25);
   _ltvTable(wd);
 }
 
-/* ----- LTV / CAC Bar ----- */
-function _ltvCACChart(wd) {
-  var sorted = wd.filter(function (d) { return d._ltvCac > 0; })
-    .sort(function (a,b) { return b._ltvCac - a._ltvCac; });
+/* ----- Incentive Efficiency Bar ----- */
+function _incEfficiencyChart(wd) {
+  var sorted = wd.filter(function (d) { return d._incROI > 0; })
+    .sort(function (a,b) { return b._incROI - a._incROI; });
   if (sorted.length === 0) { emptyState('chart-ltv-cac'); return; }
 
   safeReact('chart-ltv-cac', [{
     x: sorted.map(function (d) { return d.p.name; }),
-    y: sorted.map(function (d) { return d._ltvCac; }),
-    name: 'LTV / CAC',
+    y: sorted.map(function (d) { return d._incROI; }),
+    name: 'Rev / Incentives',
     type: 'bar',
-    marker: { color: sorted.map(function (d) { return d._ltvCac >= 1 ? '#4af6c3' : '#ff5a54'; }) },
+    marker: { color: sorted.map(function (d) { return d._incROI >= 1 ? '#4af6c3' : '#ff5a54'; }) },
     hovertemplate: '%{x}: %{y:.2f}x<extra></extra>'
   }], layoutWith({
-    yaxis: { title: 'LTV / CAC Ratio', tickformat: ',.1f', ticksuffix: 'x' },
+    yaxis: { title: 'Revenue / Incentives', tickformat: ',.1f', ticksuffix: 'x' },
     xaxis: { tickangle: -45 },
     showlegend: false,
     shapes: [{
@@ -1171,22 +1153,30 @@ function _ltvCACChart(wd) {
   }));
 }
 
-/* ----- ARPU Bar ----- */
-function _ltvARPUChart(wd) {
-  var sorted = wd.slice().sort(function (a,b) { return (b.last.arpu||0)-(a.last.arpu||0); });
+/* ----- Earnings by Protocol Bar ----- */
+function _earningsChart(wd) {
+  var sorted = wd.filter(function (d) { return d.last.earnings !== 0; })
+    .slice().sort(function (a,b) { return (b.last.earnings||0)-(a.last.earnings||0); });
   if (sorted.length === 0) { emptyState('chart-arpu'); return; }
 
   safeReact('chart-arpu', [{
     x: sorted.map(function (d) { return d.p.name; }),
-    y: sorted.map(function (d) { return d.last.arpu; }),
-    name: 'Monthly ARPU',
+    y: sorted.map(function (d) { return d.last.earnings; }),
+    name: 'Monthly Earnings',
     type: 'bar',
-    marker: { color: sorted.map(function (d) { return _sc(d.p); }) },
-    hovertemplate: '%{x}: %{y:$,.2f}<extra></extra>'
+    marker: { color: sorted.map(function (d) {
+      return d.last.earnings >= 0 ? '#4af6c3' : '#ff5a54';
+    }) },
+    hovertemplate: '%{x}: %{y:$,.0f}<extra></extra>'
   }], layoutWith({
-    yaxis: { title: 'Monthly ARPU', tickformat: '$,.0s', nticks: 6 },
+    yaxis: { title: 'Monthly Earnings', tickformat: '$,.0s', nticks: 6 },
     xaxis: { tickangle: -45 },
-    showlegend: false
+    showlegend: false,
+    shapes: [{
+      type: 'line', x0: -0.5, x1: sorted.length - 0.5,
+      y0: 0, y1: 0,
+      line: { color: '#fbbf24', width: 1, dash: 'dash' }
+    }]
   }));
 }
 
@@ -1215,17 +1205,21 @@ function _ltvIncentivesChart(all) {
   }));
 }
 
-/* ----- LTV & Incentives Table ----- */
+/* ----- Earnings & Incentives Table ----- */
 function _ltvTable(wd) {
   var tbody = document.querySelector('#table-ltv tbody');
   if (!tbody) return;
-  var sorted = wd.slice().sort(function (a,b) { return (b._ltvCac||0)-(a._ltvCac||0); });
+  var sorted = wd.slice().sort(function (a,b) { return (b.last.revenue||0) - (a.last.revenue||0); });
   var h = '';
   sorted.forEach(function (d) {
+    var rev = d.last.revenue || 0;
+    var inc = d.last.tokenIncentives || 0;
+    var earn = d.last.earnings || 0;
     h += '<tr><td class="protocol-link" data-pid="' + d.p.id + '">' + d.p.name + '</td>'
-       + '<td>' + fmtUSD(d._ltv) + '</td>'
-       + '<td>' + (d._cac > 0 ? fmtUSD(d._cac) : '—') + '</td>'
-       + '<td>' + (d._ltvCac > 0 ? fmtX(d._ltvCac) : '—') + '</td></tr>';
+       + '<td>' + fmtUSD(rev) + '</td>'
+       + '<td>' + (inc > 0 ? fmtUSD(inc) : '\u2014') + '</td>'
+       + '<td>' + (d._incROI > 0 ? fmtX(d._incROI) : '\u2014') + '</td>'
+       + '<td>' + fmtUSD(earn) + '</td></tr>';
   });
   tbody.innerHTML = h;
   tbody.querySelectorAll('.protocol-link').forEach(function (el) {
@@ -1233,7 +1227,7 @@ function _ltvTable(wd) {
       if (typeof showProtocolDetail === 'function') showProtocolDetail(el.dataset.pid);
     });
   });
-  addExportBtn('table-ltv', 'ltv-incentives');
+  addExportBtn('table-ltv', 'earnings-incentives');
   makeSortable(document.getElementById('table-ltv'));
 }
 
