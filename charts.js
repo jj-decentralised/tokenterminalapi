@@ -318,7 +318,19 @@ function renderRevenueTab() {
   setKpi('kpi-revenue-growth',
     'Avg Take Rate <i class="info-tip" data-tip="Revenue &divide; Fees. The percentage of total user-paid fees retained by the protocol.">i</i>',
     fmtPct(avgTR));
-  setKpi('kpi-median-take-rate', 'Protocols Tracked', String(wd.length));
+
+  // Momentum summary: count protocols by signal direction
+  var momUp = 0, momDown = 0;
+  wd.forEach(function (d) {
+    var sig = d.p.momentumSignal || computeMomentum(d.mo).signal;
+    if (sig === 'strong-up' || sig === 'up') momUp++;
+    else if (sig === 'strong-down' || sig === 'down') momDown++;
+  });
+  setKpi('kpi-median-take-rate',
+    'Momentum <i class="info-tip" data-tip="Protocols with positive vs negative 3-month revenue momentum">i</i>',
+    momUp + ' \u25b2  ' + momDown + ' \u25bc',
+    { text: wd.length + ' tracked', cls: '' });
+
   setKpi('kpi-top-protocol', 'Top Protocol', top ? top.p.name : '—',
     top ? { text: fmtUSD(top.last.revenue) + '/mo', cls: 'positive' } : null);
 
@@ -603,12 +615,15 @@ function renderValuationTab() {
     'Avg P/S Ratio <i class="info-tip" data-tip="Price-to-Sales: Fully diluted valuation &divide; annualized revenue">i</i>',
     fmtX(avgPS));
   setKpi('kpi-median-ps', 'Median P/S', fmtX(medPS));
+  // Revenue yield: annualized revenue / FDV (inverse of P/S)
+  var avgYield = wf.length > 0 ? wf.reduce(function (s, d) { return s + (d.last.revenueYield || 0); }, 0) / wf.length : 0;
+
   setKpi('kpi-most-overvalued', 'Most Expensive (P/S)',
     priciest ? priciest.p.name : '—',
     priciest ? { text: fmtX(priciest.last.psRatio), cls: 'negative' } : null);
-  setKpi('kpi-most-undervalued', 'Cheapest P/S',
-    cheapest ? cheapest.p.name : '—',
-    cheapest ? { text: fmtX(cheapest.last.psRatio), cls: 'positive' } : null);
+  setKpi('kpi-most-undervalued', 'Avg Rev Yield <i class="info-tip" data-tip="Annualized revenue &divide; FDV. Higher = more revenue per dollar of valuation.">i</i>',
+    fmtPct(avgYield),
+    cheapest ? { text: 'Cheapest P/S: ' + cheapest.p.name + ' (' + fmtX(cheapest.last.psRatio) + ')', cls: 'positive' } : null);
 
   /* ── Tooltips ─────────────────────────────────────────────────────── */
   addTooltip('chart-ps-scatter',
@@ -711,8 +726,10 @@ function _valTable(wf) {
   sorted.forEach(function (d) {
     h += '<tr><td class="protocol-link" data-pid="' + d.p.id + '">' + d.p.name + '</td>'
        + '<td>' + fmtUSD(d.last.fdv) + '</td>'
+       + '<td>' + (d.last.circMcap > 0 ? fmtUSD(d.last.circMcap) : '\u2014') + '</td>'
        + '<td>' + fmtUSD(d.last.revenue * 12) + '</td>'
-       + '<td>' + fmtX(d.last.psRatio) + '</td></tr>';
+       + '<td>' + fmtX(d.last.psRatio) + '</td>'
+       + '<td>' + (d.last.revenueYield > 0 ? fmtPct(d.last.revenueYield) : '\u2014') + '</td></tr>';
   });
   tbody.innerHTML = h;
   tbody.querySelectorAll('.protocol-link').forEach(function (el) {
@@ -762,12 +779,21 @@ function renderRetentionTab() {
   var bestMi = sAvg.indexOf(Math.max.apply(null, sAvg));
   var worstMi = posAvg.length > 0 ? sAvg.indexOf(Math.min.apply(null, posAvg)) : 0;
 
+  // Avg consistency (revenue predictability)
+  var avgConsistency = wd.length > 0
+    ? wd.reduce(function (s, d) { return s + (d.p.consistency || 0); }, 0) / wd.length : 0;
+  // Most consistent protocol
+  var mostConsistent = wd.reduce(function (b, d) {
+    return (!b || (d.p.consistency || 0) > (b.p.consistency || 0)) ? d : b;
+  }, null);
+
   setKpi('kpi-avg-retention',
     'Avg Sticky Rev. Index <i class="info-tip" data-tip="min(revenue_t, revenue_t-1) &divide; max(revenue_t, revenue_t-1) averaged across all months. 1.0 = perfectly stable.">i</i>',
     avgSticky.toFixed(3));
-  setKpi('kpi-best-retention', 'Best 6-Mo Retention',
-    bestRet ? bestRet.p.name : '—',
-    bestRet ? { text: fmtPct(bestRet._r6), cls: 'positive' } : null);
+  setKpi('kpi-best-retention',
+    'Avg Consistency <i class="info-tip" data-tip="1 minus coefficient of variation (std/mean). Higher = more predictable revenue.">i</i>',
+    avgConsistency.toFixed(3),
+    mostConsistent ? { text: 'Best: ' + mostConsistent.p.name + ' (' + (mostConsistent.p.consistency || 0).toFixed(3) + ')', cls: 'positive' } : null);
   setKpi('kpi-worst-month', 'Weakest Month', mNames[worstMi] || '—');
   setKpi('kpi-best-month', 'Strongest Month', mNames[bestMi] || '—');
 
@@ -1448,13 +1474,17 @@ function renderScreenerTab() {
       fees: last ? last.fees : 0,
       takeRate: last ? last.takeRate : 0,
       fdv: last ? last.fdv : 0,
+      circMcap: last ? last.circMcap : 0,
       ps: last ? last.psRatio : 0,
       tvl: last ? last.tvl : 0,
       dau: last ? last.dau : 0,
       grossMargin: last ? last.grossMargin : 0,
       netMargin: last ? last.netMargin : 0,
       consistency: p.consistency || 0,
+      stickyIndex: p.stickyIndex || 0,
+      revenueYield: last ? last.revenueYield : 0,
       mom1: momentum.mom1,
+      mom3: momentum.mom3,
       signal: momentum.signal,
       signalLabel: momentum.signalLabel,
       signalColor: momentum.signalColor
@@ -1480,14 +1510,19 @@ function renderScreenerTab() {
     h += '<td>' + fmtUSD(r.fees) + '</td>';
     h += '<td>' + fmtPct(r.takeRate) + '</td>';
     h += '<td>' + fmtUSD(r.fdv) + '</td>';
+    h += '<td>' + (r.circMcap > 0 ? fmtUSD(r.circMcap) : '\u2014') + '</td>';
     h += '<td>' + fmtX(r.ps) + '</td>';
+    h += '<td>' + (r.revenueYield > 0 ? fmtPct(r.revenueYield) : '\u2014') + '</td>';
     h += '<td>' + fmtUSD(r.tvl) + '</td>';
     h += '<td>' + fmtNum(r.dau) + '</td>';
     h += '<td class="' + gmCls + '">' + fmtPct(r.grossMargin) + '</td>';
     h += '<td class="' + nmCls + '">' + fmtPct(r.netMargin) + '</td>';
     h += '<td>' + r.consistency.toFixed(3) + '</td>';
+    h += '<td>' + r.stickyIndex.toFixed(3) + '</td>';
     var momCls = r.mom1 >= 0 ? 'positive' : 'negative';
     h += '<td class="' + momCls + '">' + fmtPct(r.mom1) + '</td>';
+    var mom3Cls = r.mom3 >= 0 ? 'positive' : 'negative';
+    h += '<td class="' + mom3Cls + '">' + fmtPct(r.mom3) + '</td>';
     h += '<td><span class="signal-badge ' + r.signal + '">' + r.signalLabel + '</span></td>';
     h += '</tr>';
   });

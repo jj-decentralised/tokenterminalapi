@@ -341,6 +341,10 @@ async function handleDbLoad(res) {
         cohorts: generateCohortsServer(p.consistency || 0.15, p.id),
         consistency: p.consistency || 0,
         stickyIndex: p.sticky_index || 0,
+        momentumSignal: p.momentum_signal || 'neutral',
+        momentumStreak: p.momentum_streak || 0,
+        revenueMom: p.revenue_mom || 0,
+        revenueMom3: p.revenue_mom3 || 0,
       };
     }
 

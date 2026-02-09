@@ -44,12 +44,22 @@ function showProtocolDetail(protocolId) {
     var prev = p.monthly.length > 1 ? p.monthly[p.monthly.length - 2] : null;
     var revGrowth = prev && prev.revenue > 0 ? (last.revenue - prev.revenue) / prev.revenue : null;
 
+    // Momentum signal from DB or computed
+    var momSignal = p.momentumSignal || 'neutral';
+    var momColors = { 'strong-up': '#22c55e', 'up': '#4ade80', 'neutral': '#94a3b8', 'down': '#f97316', 'strong-down': '#ef4444' };
+    var momLabels = { 'strong-up': '\u25b2\u25b2 Strong Up', 'up': '\u25b2 Up', 'neutral': '\u25cf Neutral', 'down': '\u25bc Down', 'strong-down': '\u25bc\u25bc Strong Down' };
+    var momColor = momColors[momSignal] || '#94a3b8';
+    var momLabel = momLabels[momSignal] || 'Neutral';
+
     kpis.innerHTML =
       '<div class="kpi-card"><div class="kpi-label">Monthly Revenue</div><div class="kpi-value">' + fmtUSD(last.revenue) + '</div>' +
         (revGrowth !== null ? '<div class="kpi-change ' + changeClass(revGrowth) + '">' + fmtPct(revGrowth) + ' MoM</div>' : '') + '</div>' +
-      '<div class="kpi-card"><div class="kpi-label">FDV</div><div class="kpi-value">' + fmtUSD(last.fdv) + '</div></div>' +
-      '<div class="kpi-card"><div class="kpi-label">P/S Ratio</div><div class="kpi-value">' + fmtX(last.psRatio) + '</div></div>' +
-      '<div class="kpi-card"><div class="kpi-label">Net Margin</div><div class="kpi-value">' + fmtPct(last.netMargin) + '</div></div>';
+      '<div class="kpi-card"><div class="kpi-label">FDV</div><div class="kpi-value">' + fmtUSD(last.fdv) + '</div>' +
+        (last.circMcap > 0 ? '<div class="kpi-change">Circ: ' + fmtUSD(last.circMcap) + '</div>' : '') + '</div>' +
+      '<div class="kpi-card"><div class="kpi-label">P/S Ratio</div><div class="kpi-value">' + fmtX(last.psRatio) + '</div>' +
+        (last.revenueYield > 0 ? '<div class="kpi-change positive">Yield: ' + fmtPct(last.revenueYield) + '</div>' : '') + '</div>' +
+      '<div class="kpi-card"><div class="kpi-label">Momentum</div><div class="kpi-value" style="color:' + momColor + '">' + momLabel + '</div>' +
+        '<div class="kpi-change">Consistency: ' + (p.consistency || 0).toFixed(3) + '</div></div>';
   }
 
   // Revenue chart
@@ -118,10 +128,12 @@ function showProtocolDetail(protocolId) {
   // Monthly data table
   var tableWrap = document.getElementById('modal-monthly-table');
   if (tableWrap && p.monthly && p.monthly.length > 0) {
-    var h = '<table class="data-table"><thead><tr><th>Month</th><th>Revenue</th><th>Fees</th><th>Earnings</th><th>TVL</th><th>DAU</th><th>P/S</th></tr></thead><tbody>';
+    var h = '<table class="data-table"><thead><tr><th>Month</th><th>Revenue</th><th>Fees</th><th>Earnings</th><th>TVL</th><th>DAU</th><th>P/S</th><th>Gross Margin</th><th>Net Margin</th></tr></thead><tbody>';
     // Show latest 12 months reversed
     p.monthly.slice(-12).reverse().forEach(function (m) {
-      h += '<tr><td>' + m.month + '</td><td>' + fmtUSD(m.revenue) + '</td><td>' + fmtUSD(m.fees) + '</td><td>' + fmtUSD(m.earnings) + '</td><td>' + fmtUSD(m.tvl) + '</td><td>' + fmtNum(m.dau) + '</td><td>' + fmtX(m.psRatio) + '</td></tr>';
+      var gmCls = m.grossMargin >= 0 ? 'positive' : 'negative';
+      var nmCls = m.netMargin >= 0 ? 'positive' : 'negative';
+      h += '<tr><td>' + m.month + '</td><td>' + fmtUSD(m.revenue) + '</td><td>' + fmtUSD(m.fees) + '</td><td>' + fmtUSD(m.earnings) + '</td><td>' + fmtUSD(m.tvl) + '</td><td>' + fmtNum(m.dau) + '</td><td>' + fmtX(m.psRatio) + '</td><td class="' + gmCls + '">' + fmtPct(m.grossMargin) + '</td><td class="' + nmCls + '">' + fmtPct(m.netMargin) + '</td></tr>';
     });
     h += '</tbody></table>';
     tableWrap.innerHTML = h;
