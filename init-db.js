@@ -44,12 +44,19 @@ async function initDB() {
     let sql = fs.readFileSync(schemaPath, 'utf8');
     sql = makeIdempotent(sql);
 
-    // Split on semicolons and execute each statement
-    // (pg client can handle multi-statement, but splitting is safer)
+    // Split on semicolons and execute each statement.
+    // Strip leading SQL comments from each chunk before checking if it's empty,
+    // but keep them in the statement (PostgreSQL handles -- comments fine).
     const statements = sql
       .split(';')
       .map(s => s.trim())
-      .filter(s => s.length > 0 && !s.startsWith('--'));
+      .filter(s => {
+        // Remove all SQL comment lines, then check if actual SQL remains
+        const stripped = s.split('\n')
+          .filter(line => !line.trim().startsWith('--'))
+          .join('\n').trim();
+        return stripped.length > 0;
+      });
 
     // Execute each statement independently (NOT in a single transaction).
     // In PostgreSQL, if any statement fails inside a transaction, ALL
