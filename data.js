@@ -839,10 +839,39 @@ function computeDerivedMetrics(monthly) {
 }
 
 // ===================================================================
+// DATABASE-BACKED FAST LOAD (tries PostgreSQL cache first)
+// ===================================================================
+async function fetchFromDatabase(onProgress) {
+  try {
+    if (onProgress) onProgress(0, 0, 'Loading from database...');
+    var res = await fetch('/api/db/load');
+    if (!res.ok) return null;
+
+    var source = res.headers.get('X-Data-Source');
+    if (source !== 'database') return null;
+
+    var data = await res.json();
+    if (!data || typeof data !== 'object' || Object.keys(data).length === 0) return null;
+
+    var count = Object.keys(data).length;
+    console.log('[data] Loaded ' + count + ' protocols from database (instant)');
+    if (onProgress) onProgress(count, count, 'Loaded ' + count + ' protocols from database');
+    return data;
+  } catch (e) {
+    console.log('[data] Database not available, falling back to TT API');
+    return null;
+  }
+}
+
+// ===================================================================
 // LIVE DATA PIPELINE
 // ===================================================================
 async function fetchAllLiveData(onProgress) {
-  // 1. Check if API is configured
+  // 0. Try database first (instant load if PostgreSQL is configured and synced)
+  var dbData = await fetchFromDatabase(onProgress);
+  if (dbData) return dbData;
+
+  // 1. Check if API is configured (fallback to direct TT API proxy)
   const health = await fetch('/health').then(function (r) { return r.json(); }).catch(function () { return { api_configured: false }; });
   if (!health.api_configured) return null;
 
