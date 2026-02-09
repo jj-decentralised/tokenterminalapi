@@ -461,9 +461,10 @@ function handleDbStatus(res) {
 // Runs on server startup + every 6 hours.
 // ==========================================================================
 
-const BATCH_SIZE = 5;       // Conservative: 5 concurrent requests per batch
-const BATCH_DELAY = 2000;   // 2s between batches → ~150 req/min (well under 1000/min limit)
+const BATCH_SIZE = 2;       // Small batches to avoid burst-triggering rate limits
+const BATCH_DELAY = 3000;   // 3s between batches → ~40 req/min (very conservative)
 const MAX_RETRIES = 3;      // Retry 429s with exponential backoff
+const RATE_LIMIT_COOLDOWN = 30000; // 30s cooldown when 429 detected at batch level
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -573,6 +574,10 @@ async function runSync() {
       console.warn('[sync] Sector map failed:', e.message);
     }
 
+    // Cooldown between sector phase and project fetch to avoid rate limit carryover
+    console.log('[sync] Cooling down 10s before project fetch...');
+    await sleep(10000);
+
     // 3. Fetch project list
     console.log('[sync] Fetching project list...');
     const projJson = await fetchTTJson('/projects');
@@ -602,10 +607,15 @@ async function runSync() {
       );
     }
 
-    // 5. Batch-fetch metrics
+    // 5. Batch-fetch metrics (with adaptive rate limiting)
+    // Cooldown before metrics to let rate limit window reset
+    console.log('[sync] Cooling down 15s before metrics fetch...');
+    await sleep(15000);
+
     console.log('[sync] Fetching metrics...');
     let okCount = 0, failCount = 0;
     const protocolIds = toSync.map(p => (p.project_id || p.id || '').toLowerCase()).filter(Boolean);
+    let consecutiveRateLimits = 0;
 
     for (let i = 0; i < protocolIds.length; i += BATCH_SIZE) {
       const chunk = protocolIds.slice(i, i + BATCH_SIZE);
@@ -615,6 +625,14 @@ async function runSync() {
             .then(data => ({ pid, data }))
         )
       );
+
+      // Check if any request in this batch was rate-limited (even after retries)
+      let batchHadRateLimit = false;
+      for (const r of results) {
+        if (r.status === 'rejected' && r.reason && r.reason.message && r.reason.message.includes('429')) {
+          batchHadRateLimit = true;
+        }
+      }
 
       for (const r of results) {
         if (r.status !== 'fulfilled') { failCount++; continue; }
@@ -680,10 +698,20 @@ async function runSync() {
       }
 
       const done = Math.min(i + BATCH_SIZE, protocolIds.length);
-      if (done % 60 === 0 || done === protocolIds.length) {
+      if (done % 50 === 0 || done === protocolIds.length) {
         console.log(`[sync] Progress: ${done}/${protocolIds.length} (${okCount} ok, ${failCount} failed)`);
       }
-      if (i + BATCH_SIZE < protocolIds.length) await sleep(BATCH_DELAY);
+
+      // Adaptive backoff: if any request in this batch was rate-limited, cool down
+      if (batchHadRateLimit) {
+        consecutiveRateLimits++;
+        const cooldown = RATE_LIMIT_COOLDOWN * consecutiveRateLimits; // 30s, 60s, 90s...
+        console.warn(`[sync] Rate limit detected in batch, cooling down ${cooldown / 1000}s...`);
+        await sleep(cooldown);
+      } else {
+        consecutiveRateLimits = Math.max(0, consecutiveRateLimits - 1); // Gradually recover
+        if (i + BATCH_SIZE < protocolIds.length) await sleep(BATCH_DELAY);
+      }
     }
 
     // 6. Compute protocol_latest with momentum signals

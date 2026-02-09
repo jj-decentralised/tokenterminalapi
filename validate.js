@@ -230,10 +230,10 @@ function checkRateLimits() {
       const delay = parseInt(batchDelayMatch[1]);
       const reqPerMin = (size / (delay / 1000)) * 60;
 
-      if (reqPerMin > 800) {
-        error(`${file}: BATCH_SIZE=${size}, BATCH_DELAY=${delay}ms → ~${Math.round(reqPerMin)} req/min (exceeds TT API's 1000/min limit)`);
-      } else if (reqPerMin > 500) {
-        warn(`${file}: BATCH_SIZE=${size}, BATCH_DELAY=${delay}ms → ~${Math.round(reqPerMin)} req/min (close to limit)`);
+      if (reqPerMin > 200) {
+        error(`${file}: BATCH_SIZE=${size}, BATCH_DELAY=${delay}ms → ~${Math.round(reqPerMin)} req/min (too aggressive for TT API)`);
+      } else if (reqPerMin > 100) {
+        warn(`${file}: BATCH_SIZE=${size}, BATCH_DELAY=${delay}ms → ~${Math.round(reqPerMin)} req/min (moderate — watch for 429s)`);
       } else {
         ok(`${file}: BATCH_SIZE=${size}, BATCH_DELAY=${delay}ms → ~${Math.round(reqPerMin)} req/min (safe)`);
       }

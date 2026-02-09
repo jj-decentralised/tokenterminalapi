@@ -21,9 +21,10 @@ const { Pool } = require('pg');
 const TT_BASE = 'https://api.tokenterminal.com/v2';
 const TT_KEY = process.env.TT_API_KEY;
 const MAX_PROTOCOLS = 500;
-const BATCH_SIZE = 5;        // Conservative: 5 concurrent requests per batch
-const BATCH_DELAY = 2000;    // 2s between batches → ~150 req/min (well under 1000/min limit)
+const BATCH_SIZE = 2;        // Small batches to avoid burst-triggering rate limits
+const BATCH_DELAY = 3000;    // 3s between batches → ~40 req/min (very conservative)
 const MAX_RETRIES = 3;       // Retry 429s with exponential backoff
+const RATE_LIMIT_COOLDOWN = 30000; // 30s cooldown when 429 detected at batch level
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -277,9 +278,14 @@ async function syncMetricsForProtocol(protocolId) {
 }
 
 async function syncAllMetrics(protocolIds) {
+  // Cooldown before starting metrics to let rate limit window reset
+  console.log('[sync] Cooling down 15s before metrics fetch...');
+  await sleep(15000);
+
   console.log(`[sync] Syncing metrics for ${protocolIds.length} protocols...`);
   let total = 0;
   let failed = 0;
+  let consecutiveRateLimits = 0;
 
   for (let i = 0; i < protocolIds.length; i += BATCH_SIZE) {
     const chunk = protocolIds.slice(i, i + BATCH_SIZE);
@@ -287,18 +293,35 @@ async function syncAllMetrics(protocolIds) {
       chunk.map(pid => syncMetricsForProtocol(pid))
     );
 
+    let batchHadRateLimit = false;
     for (const r of results) {
       if (r.status === 'fulfilled' && r.value > 0) total++;
-      else failed++;
+      else {
+        failed++;
+        if (r.status === 'rejected' && r.reason && r.reason.message && r.reason.message.includes('429')) {
+          batchHadRateLimit = true;
+        }
+      }
     }
 
     const done = Math.min(i + BATCH_SIZE, protocolIds.length);
-    process.stdout.write(`\r[sync] Progress: ${done}/${protocolIds.length} (${total} ok, ${failed} failed)`);
+    if (done % 50 === 0 || done === protocolIds.length) {
+      console.log(`[sync] Progress: ${done}/${protocolIds.length} (${total} ok, ${failed} failed)`);
+    }
 
-    if (i + BATCH_SIZE < protocolIds.length) await sleep(BATCH_DELAY);
+    // Adaptive backoff: if any request was rate-limited, cool down
+    if (batchHadRateLimit) {
+      consecutiveRateLimits++;
+      const cooldown = RATE_LIMIT_COOLDOWN * consecutiveRateLimits;
+      console.warn(`[sync] Rate limit detected in batch, cooling down ${cooldown / 1000}s...`);
+      await sleep(cooldown);
+    } else {
+      consecutiveRateLimits = Math.max(0, consecutiveRateLimits - 1);
+      if (i + BATCH_SIZE < protocolIds.length) await sleep(BATCH_DELAY);
+    }
   }
 
-  console.log(`\n[sync] Metrics sync complete: ${total} ok, ${failed} failed`);
+  console.log(`[sync] Metrics sync complete: ${total} ok, ${failed} failed`);
 }
 
 // =============================================================================
