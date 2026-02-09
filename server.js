@@ -17,6 +17,7 @@ const { initDB } = require('./init-db');
 // Sync state
 let lastSyncTime = null;
 let syncInProgress = false;
+let syncProgress = { total: 0, done: 0, ok: 0, empty: 0, failed: 0, skipped: 0 };
 const SYNC_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
 
 // ---------------------------------------------------------------------------
@@ -483,8 +484,20 @@ function handleDbStatus(res) {
     db_configured: db.isConfigured,
     last_sync: lastSyncTime ? lastSyncTime.toISOString() : null,
     sync_in_progress: syncInProgress,
+    sync_progress: syncInProgress ? syncProgress : null,
     next_sync_in: lastSyncTime ? Math.max(0, SYNC_INTERVAL - (Date.now() - lastSyncTime.getTime())) : 0,
   });
+}
+
+// POST /api/db/sync — Trigger manual sync
+function handleDbSync(res) {
+  if (syncInProgress) {
+    jsonResponse(res, { status: 'already_running', message: 'Sync is already in progress' });
+    return;
+  }
+  console.log('[sync] Manual sync triggered via API');
+  runSync();
+  jsonResponse(res, { status: 'started', message: 'Sync started in background' });
 }
 
 // ==========================================================================
@@ -673,6 +686,7 @@ async function runSync() {
     if (skippedCount > 0) {
       console.log(`[sync] Skipping ${skippedCount} known-empty protocols, fetching ${protocolIds.length}`);
     }
+    syncProgress = { total: protocolIds.length, done: 0, ok: 0, empty: 0, failed: 0, skipped: skippedCount };
     let consecutiveRateLimits = 0;
 
     for (let i = 0; i < protocolIds.length; i += BATCH_SIZE) {
@@ -756,6 +770,7 @@ async function runSync() {
       }
 
       const done = Math.min(i + BATCH_SIZE, protocolIds.length);
+      syncProgress = { total: protocolIds.length, done, ok: okCount, empty: emptyCount, failed: failCount, skipped: skippedCount };
       if (done % 50 === 0 || done === protocolIds.length) {
         console.log(`[sync] Progress: ${done}/${protocolIds.length} (${okCount} ok, ${emptyCount} empty, ${failCount} failed)`);
       }
@@ -922,6 +937,11 @@ const server = http.createServer((req, res) => {
 
   if (pathname === '/api/db/status') {
     handleDbStatus(res);
+    return;
+  }
+
+  if (pathname === '/api/db/sync') {
+    handleDbSync(res);
     return;
   }
 
